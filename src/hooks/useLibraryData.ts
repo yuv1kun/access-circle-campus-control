@@ -1,22 +1,20 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Student {
-  id: string;
+  usn: string;
   name: string;
-  email: string;
-  photo_url?: string;
+  contact_no?: string;
+  image_url?: string;
   created_at: string;
 }
 
 export interface BookTransaction {
-  id: string;
-  student_id: string;
-  student_name: string;
-  book_title: string;
-  book_isbn: string;
+  transaction_id: string;
+  nfc_uid_scanner: string;
+  book_id: string;
   issue_date: string;
   due_date: string;
   return_date?: string;
@@ -25,11 +23,11 @@ export interface BookTransaction {
 }
 
 export interface LibraryEntry {
-  id: string;
-  student_id: string;
-  student_name: string;
+  log_id: string;
+  nfc_uid_scanner: string;
   entry_time: string;
   exit_time?: string;
+  log_date: string;
   created_at: string;
 }
 
@@ -47,15 +45,35 @@ export const useLibraryData = () => {
 
   const fetchInitialData = async () => {
     try {
+      console.log('Fetching library data...');
+      
       const [studentsData, transactionsData, entriesData] = await Promise.all([
         supabase.from('students').select('*').order('name'),
-        supabase.from('book_transactions').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('library_entries').select('*').order('created_at', { ascending: false }).limit(50)
+        supabase.from('library_book_transactions').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('library_access_logs').select('*').order('created_at', { ascending: false }).limit(50)
       ]);
 
-      if (studentsData.data) setStudents(studentsData.data);
-      if (transactionsData.data) setTransactions(transactionsData.data);
-      if (entriesData.data) setEntries(entriesData.data);
+      console.log('Students data:', studentsData);
+      console.log('Transactions data:', transactionsData);
+      console.log('Entries data:', entriesData);
+
+      if (studentsData.error) {
+        console.error('Students fetch error:', studentsData.error);
+      } else if (studentsData.data) {
+        setStudents(studentsData.data);
+      }
+
+      if (transactionsData.error) {
+        console.error('Transactions fetch error:', transactionsData.error);
+      } else if (transactionsData.data) {
+        setTransactions(transactionsData.data);
+      }
+
+      if (entriesData.error) {
+        console.error('Entries fetch error:', entriesData.error);
+      } else if (entriesData.data) {
+        setEntries(entriesData.data);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -70,8 +88,8 @@ export const useLibraryData = () => {
 
   const setupRealtimeSubscriptions = () => {
     const transactionsChannel = supabase
-      .channel('book_transactions_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'book_transactions' }, 
+      .channel('library_book_transactions_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'library_book_transactions' }, 
         (payload) => {
           console.log('Transaction change:', payload);
           fetchInitialData();
@@ -79,8 +97,8 @@ export const useLibraryData = () => {
       .subscribe();
 
     const entriesChannel = supabase
-      .channel('library_entries_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'library_entries' }, 
+      .channel('library_access_logs_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'library_access_logs' }, 
         (payload) => {
           console.log('Entry change:', payload);
           fetchInitialData();
@@ -96,42 +114,61 @@ export const useLibraryData = () => {
   const searchStudents = async (query: string): Promise<Student[]> => {
     if (!query.trim()) return [];
     
-    const { data, error } = await supabase
-      .from('students')
-      .select('*')
-      .or(`name.ilike.%${query}%,id.ilike.%${query}%`)
-      .limit(10);
+    try {
+      console.log('Searching students with query:', query);
+      
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .or(`name.ilike.%${query}%,usn.ilike.%${query}%`)
+        .limit(10);
 
-    if (error) {
+      if (error) {
+        console.error('Search error:', error);
+        return [];
+      }
+
+      console.log('Search results:', data);
+      return data || [];
+    } catch (error) {
       console.error('Search error:', error);
       return [];
     }
-
-    return data || [];
   };
 
-  const recordEntry = async (studentId: string, type: 'in' | 'out') => {
+  const recordEntry = async (studentUsn: string, type: 'in' | 'out') => {
     try {
-      const student = students.find(s => s.id === studentId);
+      // First get the student's NFC UID
+      const { data: nfcData, error: nfcError } = await supabase
+        .from('nfc_rings')
+        .select('nfc_uid')
+        .eq('student_usn', studentUsn)
+        .single();
+
+      if (nfcError || !nfcData) {
+        throw new Error('NFC ring not found for student');
+      }
+
+      const student = students.find(s => s.usn === studentUsn);
       if (!student) {
         throw new Error('Student not found');
       }
 
       if (type === 'in') {
         const { error } = await supabase
-          .from('library_entries')
+          .from('library_access_logs')
           .insert({
-            student_id: studentId,
-            student_name: student.name,
+            nfc_uid_scanner: nfcData.nfc_uid,
             entry_time: new Date().toISOString(),
+            log_date: new Date().toISOString().split('T')[0],
           });
 
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('library_entries')
+          .from('library_access_logs')
           .update({ exit_time: new Date().toISOString() })
-          .eq('student_id', studentId)
+          .eq('nfc_uid_scanner', nfcData.nfc_uid)
           .is('exit_time', null)
           .order('created_at', { ascending: false })
           .limit(1);
@@ -141,7 +178,7 @@ export const useLibraryData = () => {
 
       toast({
         title: `Student ${type === 'in' ? 'Check-In' : 'Check-Out'} Successful`,
-        description: `${student.name} (${studentId}) recorded at ${new Date().toLocaleTimeString()}`,
+        description: `${student.name} (${studentUsn}) recorded at ${new Date().toLocaleTimeString()}`,
       });
 
       return student;
@@ -156,9 +193,22 @@ export const useLibraryData = () => {
     }
   };
 
-  const issueBook = async (studentId: string, bookTitle: string, bookIsbn: string) => {
+  const issueBook = async (studentUsn: string, bookTitle: string, bookId: string) => {
     try {
-      const student = students.find(s => s.id === studentId);
+      console.log('Issuing book:', { studentUsn, bookTitle, bookId });
+
+      // First get the student's NFC UID
+      const { data: nfcData, error: nfcError } = await supabase
+        .from('nfc_rings')
+        .select('nfc_uid')
+        .eq('student_usn', studentUsn)
+        .single();
+
+      if (nfcError || !nfcData) {
+        throw new Error('NFC ring not found for student');
+      }
+
+      const student = students.find(s => s.usn === studentUsn);
       if (!student) {
         throw new Error('Student not found');
       }
@@ -167,28 +217,32 @@ export const useLibraryData = () => {
       dueDate.setDate(dueDate.getDate() + 14); // 14 days from now
 
       const { error } = await supabase
-        .from('book_transactions')
+        .from('library_book_transactions')
         .insert({
-          student_id: studentId,
-          student_name: student.name,
-          book_title: bookTitle,
-          book_isbn: bookIsbn,
+          nfc_uid_scanner: nfcData.nfc_uid,
+          book_id: bookId,
           issue_date: new Date().toISOString(),
-          due_date: dueDate.toISOString(),
+          due_date: dueDate.toISOString().split('T')[0], // Date only for due_date
           status: 'issued'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       toast({
         title: "Book Issued Successfully",
         description: `${bookTitle} issued to ${student.name}`,
       });
+
+      // Refresh data to show the new transaction
+      fetchInitialData();
     } catch (error) {
       console.error('Book issue error:', error);
       toast({
         title: "Error",
-        description: "Failed to issue book",
+        description: error instanceof Error ? error.message : "Failed to issue book",
         variant: "destructive",
       });
       throw error;
@@ -198,12 +252,12 @@ export const useLibraryData = () => {
   const returnBook = async (transactionId: string) => {
     try {
       const { error } = await supabase
-        .from('book_transactions')
+        .from('library_book_transactions')
         .update({
           return_date: new Date().toISOString(),
           status: 'returned'
         })
-        .eq('id', transactionId);
+        .eq('transaction_id', transactionId);
 
       if (error) throw error;
 
@@ -211,6 +265,9 @@ export const useLibraryData = () => {
         title: "Book Returned Successfully",
         description: "Book return has been recorded",
       });
+
+      // Refresh data
+      fetchInitialData();
     } catch (error) {
       console.error('Book return error:', error);
       toast({

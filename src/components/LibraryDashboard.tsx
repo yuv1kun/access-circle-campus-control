@@ -43,8 +43,8 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
     try {
       // Simulate NFC scan - in real implementation, this would interface with NFC hardware
       setTimeout(async () => {
-        const mockStudentId = 'CS21004'; // In real app, this comes from NFC scan
-        const student = await recordEntry(mockStudentId, type);
+        const mockStudentUsn = 'CS21004'; // In real app, this comes from NFC scan
+        const student = await recordEntry(mockStudentUsn, type);
         setCurrentStudent(student);
         setIsScanning(false);
       }, 2000);
@@ -135,7 +135,7 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
             <p className="text-blue-200">AccessCircle - Library Management</p>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="outline" className="text-white border-white hover:bg-blue-800">
+            <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100">
               <AlertTriangle className="w-4 h-4 mr-2" />
               Emergency Alert
             </Button>
@@ -181,13 +181,13 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
                 <h3 className="font-semibold mb-2">Last Scanned Student</h3>
                 <div className="flex items-center gap-4">
                   <img 
-                    src={currentStudent.photo_url || '/placeholder.svg'} 
+                    src={currentStudent.image_url || '/placeholder.svg'} 
                     alt={currentStudent.name}
                     className="w-12 h-12 rounded-full bg-gray-200"
                   />
                   <div>
                     <p className="font-medium">{currentStudent.name}</p>
-                    <p className="text-sm text-gray-600">{currentStudent.id}</p>
+                    <p className="text-sm text-gray-600">{currentStudent.usn}</p>
                     <p className="text-xs text-gray-500">
                       Scanned at: {new Date().toLocaleString()}
                     </p>
@@ -209,7 +209,7 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
           <CardContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="search">Student ID / Name</Label>
+                <Label htmlFor="search">Student USN / Name</Label>
                 <Input
                   id="search"
                   value={searchQuery}
@@ -224,12 +224,12 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
                 <div className="max-h-40 overflow-y-auto space-y-2">
                   {searchResults.map((student) => (
                     <div 
-                      key={student.id}
+                      key={student.usn}
                       className="p-2 border rounded cursor-pointer hover:bg-gray-50"
                       onClick={() => setCurrentStudent(student)}
                     >
                       <p className="font-medium text-sm">{student.name}</p>
-                      <p className="text-xs text-gray-600">{student.id}</p>
+                      <p className="text-xs text-gray-600">{student.usn}</p>
                     </div>
                   ))}
                 </div>
@@ -351,12 +351,12 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
                 <p className="text-gray-500 text-center py-8">No recent transactions</p>
               ) : (
                 transactions.slice(0, 10).map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div key={transaction.transaction_id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
                       <User className="w-8 h-8 text-gray-400" />
                       <div>
-                        <p className="font-medium">{transaction.student_name}</p>
-                        <p className="text-sm text-gray-600">{transaction.book_title}</p>
+                        <p className="font-medium">Book ID: {transaction.book_id}</p>
+                        <p className="text-sm text-gray-600">NFC UID: {transaction.nfc_uid_scanner}</p>
                         <p className="text-xs text-gray-500">
                           {new Date(transaction.issue_date).toLocaleDateString()}
                         </p>

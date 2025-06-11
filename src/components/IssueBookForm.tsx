@@ -9,32 +9,32 @@ import { Student } from '@/hooks/useLibraryData';
 interface IssueBookFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onIssue: (studentId: string, bookTitle: string, bookIsbn: string) => Promise<void>;
+  onIssue: (studentUsn: string, bookTitle: string, bookId: string) => Promise<void>;
   currentStudent?: Student | null;
 }
 
 const IssueBookForm = ({ isOpen, onClose, onIssue, currentStudent }: IssueBookFormProps) => {
-  const [studentId, setStudentId] = useState('');
+  const [studentUsn, setStudentUsn] = useState('');
   const [bookTitle, setBookTitle] = useState('');
-  const [bookIsbn, setBookIsbn] = useState('');
+  const [bookId, setBookId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   React.useEffect(() => {
     if (currentStudent) {
-      setStudentId(currentStudent.id);
+      setStudentUsn(currentStudent.usn);
     }
   }, [currentStudent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!studentId || !bookTitle || !bookIsbn) return;
+    if (!studentUsn || !bookTitle || !bookId) return;
 
     setIsLoading(true);
     try {
-      await onIssue(studentId, bookTitle, bookIsbn);
-      setStudentId('');
+      await onIssue(studentUsn, bookTitle, bookId);
+      setStudentUsn('');
       setBookTitle('');
-      setBookIsbn('');
+      setBookId('');
       onClose();
     } catch (error) {
       console.error('Issue book error:', error);
@@ -51,12 +51,12 @@ const IssueBookForm = ({ isOpen, onClose, onIssue, currentStudent }: IssueBookFo
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="studentId">Student ID</Label>
+            <Label htmlFor="studentUsn">Student USN</Label>
             <Input
-              id="studentId"
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              placeholder="Enter student ID"
+              id="studentUsn"
+              value={studentUsn}
+              onChange={(e) => setStudentUsn(e.target.value)}
+              placeholder="Enter student USN"
               required
             />
           </div>
@@ -71,12 +71,12 @@ const IssueBookForm = ({ isOpen, onClose, onIssue, currentStudent }: IssueBookFo
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="bookIsbn">Book ISBN</Label>
+            <Label htmlFor="bookId">Book ID</Label>
             <Input
-              id="bookIsbn"
-              value={bookIsbn}
-              onChange={(e) => setBookIsbn(e.target.value)}
-              placeholder="Enter book ISBN"
+              id="bookId"
+              value={bookId}
+              onChange={(e) => setBookId(e.target.value)}
+              placeholder="Enter book ID"
               required
             />
           </div>
