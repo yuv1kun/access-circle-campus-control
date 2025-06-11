@@ -60,7 +60,7 @@ const ExportControls = ({ entries }: ExportControlsProps) => {
           : 'N/A'
       }));
 
-      const filename = `gate_entries_${startDate || 'all'}_to_${endDate || 'all'}.csv`;
+      const filename = `gate_entries_${startDate || 'all'}_to_${endDate || 'all'}`;
       exportToCSV(csvData, filename);
 
       toast({
@@ -93,37 +93,21 @@ const ExportControls = ({ entries }: ExportControlsProps) => {
         return;
       }
 
-      // Calculate summary statistics
-      const totalEntries = filteredEntries.length;
-      const activeEntries = filteredEntries.filter(entry => !entry.exit_time).length;
-      const completedEntries = filteredEntries.filter(entry => entry.exit_time).length;
-      
-      const pdfData = {
-        title: 'Gate Entry Log Report',
-        subtitle: `Generated on ${new Date().toLocaleDateString()}`,
-        dateRange: startDate || endDate ? `${startDate || 'Start'} to ${endDate || 'End'}` : 'All Dates',
-        summary: {
-          'Total Entries': totalEntries,
-          'Active Entries': activeEntries,
-          'Completed Entries': completedEntries,
-          'Average Daily Entries': totalEntries > 0 ? Math.round(totalEntries / Math.max(1, new Set(filteredEntries.map(e => e.log_date)).size)) : 0
-        },
-        headers: ['Student Name', 'USN', 'Entry Time', 'Exit Time', 'Status'],
-        data: filteredEntries.map(entry => [
-          entry.student?.name || 'Unknown',
-          entry.student?.usn || 'N/A',
-          entry.entry_time ? new Date(entry.entry_time).toLocaleString() : 'N/A',
-          entry.exit_time ? new Date(entry.exit_time).toLocaleString() : 'N/A',
-          entry.exit_time ? 'Completed' : 'Active'
-        ])
-      };
+      // Transform gate entries for PDF export - using the same format as CSV but for PDF
+      const pdfData = filteredEntries.map(entry => ({
+        'Student Name': entry.student?.name || 'Unknown',
+        'USN': entry.student?.usn || 'N/A',
+        'Entry Time': entry.entry_time ? new Date(entry.entry_time).toLocaleString() : 'N/A',
+        'Exit Time': entry.exit_time ? new Date(entry.exit_time).toLocaleString() : 'N/A',
+        'Status': entry.exit_time ? 'Completed' : 'Active'
+      }));
 
-      const filename = `gate_entries_report_${startDate || 'all'}_to_${endDate || 'all'}.pdf`;
-      await exportToPDF(pdfData, filename);
+      const filename = `gate_entries_report_${startDate || 'all'}_to_${endDate || 'all'}`;
+      exportToPDF(pdfData, filename);
 
       toast({
         title: "Export Successful",
-        description: `Exported ${totalEntries} entries to PDF`,
+        description: `Exported ${filteredEntries.length} entries to PDF`,
       });
     } catch (error) {
       console.error('PDF export error:', error);
