@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export interface AdminUser {
@@ -22,7 +22,7 @@ export const useAuth = () => {
       
       // Query admin user by username using the correct table name
       const { data: adminUser, error } = await supabase
-        .from('admin_users') // Using lowercase table name as per schema
+        .from('admin_users')
         .select('id, username, password_hash, role, status')
         .eq('username', username)
         .eq('status', 'active')

@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export interface HostelEntry {
@@ -40,12 +40,12 @@ export const useHostelData = () => {
     queryKey: ['hostel-entries'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('Hostel_Access_Logs')
+        .from('hostel_access_logs')
         .select(`
           *,
-          NFC_Rings!fk_nfc_uid_hostel (
+          nfc_rings!fk_nfc_uid_hostel (
             student_usn,
-            Students (
+            students (
               usn,
               name,
               contact_no
@@ -59,8 +59,8 @@ export const useHostelData = () => {
       
       return data?.map(entry => ({
         ...entry,
-        student: entry.NFC_Rings?.Students,
-        nfc_ring: entry.NFC_Rings
+        student: entry.nfc_rings?.students,
+        nfc_ring: entry.nfc_rings
       })) || [];
     }
   });
@@ -81,7 +81,7 @@ export const useHostelData = () => {
         subscriptionRef.current = supabase
           .channel(`hostel_access_logs_${Date.now()}`) // Unique channel name
           .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'Hostel_Access_Logs' },
+            { event: '*', schema: 'public', table: 'hostel_access_logs' },
             (payload) => {
               console.log('Real-time update received:', payload);
               queryClient.invalidateQueries({ queryKey: ['hostel-entries'] });
@@ -132,13 +132,13 @@ export const useHostelData = () => {
       };
 
       const { data, error } = await supabase
-        .from('Hostel_Access_Logs')
+        .from('hostel_access_logs')
         .insert([entryData])
         .select(`
           *,
-          NFC_Rings!fk_nfc_uid_hostel (
+          nfc_rings!fk_nfc_uid_hostel (
             student_usn,
-            Students (
+            students (
               usn,
               name,
               contact_no
@@ -152,7 +152,7 @@ export const useHostelData = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['hostel-entries'] });
-      const student = data.NFC_Rings?.Students;
+      const student = data.nfc_rings?.students;
       const isLate = data.entry_time && new Date(data.entry_time).getHours() >= 22;
       
       toast({
@@ -214,15 +214,15 @@ export const useHostelSearch = () => {
     setIsSearching(true);
     try {
       const { data, error } = await supabase
-        .from('Students')
+        .from('students')
         .select(`
           usn,
           name,
           contact_no,
-          NFC_Rings (
+          nfc_rings (
             nfc_uid,
             status,
-            Hostel_Access_Logs (
+            hostel_access_logs (
               entry_time,
               exit_time,
               created_at
