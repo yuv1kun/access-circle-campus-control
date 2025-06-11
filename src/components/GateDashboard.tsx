@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -126,7 +127,7 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
               <p className="text-green-200">AccessCircle - Photo Management</p>
             </div>
             <div className="flex items-center gap-4">
-              <Button variant="outline" className="text-white border-white hover:bg-green-800" onClick={() => setShowPhotoManager(false)}>
+              <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100" onClick={() => setShowPhotoManager(false)}>
                 Back to Dashboard
               </Button>
               <Button variant="secondary" onClick={onLogout}>
@@ -153,11 +154,11 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
             <p className="text-green-200">AccessCircle - Entry Management</p>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="outline" className="text-white border-white hover:bg-green-800" onClick={() => setShowPhotoManager(true)}>
+            <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100" onClick={() => setShowPhotoManager(true)}>
               <Camera className="w-4 h-4 mr-2" />
               Manage Photos
             </Button>
-            <Button variant="outline" className="text-white border-white hover:bg-green-800">
+            <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100">
               <AlertTriangle className="w-4 h-4 mr-2" />
               Emergency Alert
             </Button>
