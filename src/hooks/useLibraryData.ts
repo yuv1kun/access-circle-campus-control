@@ -12,7 +12,7 @@ export interface Student {
 }
 
 export interface BookTransaction {
-  transaction_id: string;
+  transaction_id: number;
   nfc_uid_scanner: string;
   book_id: string;
   issue_date: string;
@@ -23,7 +23,7 @@ export interface BookTransaction {
 }
 
 export interface LibraryEntry {
-  log_id: string;
+  log_id: number;
   nfc_uid_scanner: string;
   entry_time: string;
   exit_time?: string;
@@ -257,7 +257,7 @@ export const useLibraryData = () => {
           return_date: new Date().toISOString(),
           status: 'returned'
         })
-        .eq('transaction_id', transactionId);
+        .eq('transaction_id', parseInt(transactionId));
 
       if (error) throw error;
 

@@ -56,18 +56,18 @@ const ReturnBookForm = ({ isOpen, onClose, onReturn, transactions }: ReturnBookF
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {issuedBooks.map((transaction) => (
                 <div 
-                  key={transaction.id}
+                  key={transaction.transaction_id}
                   className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedBooks.includes(transaction.id) 
+                    selectedBooks.includes(transaction.transaction_id.toString()) 
                       ? 'bg-blue-50 border-blue-300' 
                       : 'hover:bg-gray-50'
                   }`}
-                  onClick={() => handleBookSelect(transaction.id)}
+                  onClick={() => handleBookSelect(transaction.transaction_id.toString())}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{transaction.book_title}</p>
-                      <p className="text-sm text-gray-600">{transaction.student_name}</p>
+                      <p className="font-medium">Book ID: {transaction.book_id}</p>
+                      <p className="text-sm text-gray-600">NFC UID: {transaction.nfc_uid_scanner}</p>
                       <p className="text-xs text-gray-500">
                         Issued: {new Date(transaction.issue_date).toLocaleDateString()}
                       </p>
@@ -80,8 +80,8 @@ const ReturnBookForm = ({ isOpen, onClose, onReturn, transactions }: ReturnBookF
                       </Badge>
                       <input
                         type="checkbox"
-                        checked={selectedBooks.includes(transaction.id)}
-                        onChange={() => handleBookSelect(transaction.id)}
+                        checked={selectedBooks.includes(transaction.transaction_id.toString())}
+                        onChange={() => handleBookSelect(transaction.transaction_id.toString())}
                         className="w-4 h-4"
                       />
                     </div>
