@@ -149,7 +149,64 @@
     }
     
     .mobile-button {
-      @apply h-12 px-6 text-base;
+      @apply h-12 px-6 text-base min-h-[44px];
+    }
+
+    /* Mobile-specific touch targets */
+    .mobile-button,
+    input[type="text"],
+    input[type="search"],
+    input[type="date"],
+    textarea,
+    select {
+      @apply min-h-[44px] text-base;
+    }
+
+    /* Mobile grid adjustments */
+    .mobile-grid-fix {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    /* Mobile card spacing */
+    .mobile-card-spacing {
+      @apply p-3 m-2;
+    }
+
+    /* Mobile text adjustments */
+    .mobile-text-responsive {
+      @apply text-sm leading-5;
+    }
+
+    /* Mobile header adjustments */
+    .mobile-header-compact {
+      @apply p-3 text-base;
+    }
+
+    /* Mobile dropdown improvements */
+    .mobile-dropdown {
+      @apply w-full max-w-none;
     }
   }
-}
+
+  /* Enhanced mobile interactions */
+  @media (hover: none) and (pointer: coarse) {
+    /* Mobile-specific hover states */
+    button:active,
+    .mobile-button:active {
+      @apply scale-95 transition-transform duration-150;
+    }
+
+    /* Better touch feedback */
+    .mobile-card-interactive:active {
+      @apply bg-gray-50 transition-colors duration-150;
+    }
+  }
+
+  /* Mobile landscape optimizations */
+  @media (max-width: 768px) and (orientation: landscape) {
+    .mobile-landscape-compact {
+      @apply h-10 text-sm px-4;
+    }
+  }
+</layer>

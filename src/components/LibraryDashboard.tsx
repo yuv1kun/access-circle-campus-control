@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,8 @@ import IssueBookForm from '@/components/IssueBookForm';
 import ReturnBookForm from '@/components/ReturnBookForm';
 import EmergencyAlertDialog from '@/components/EmergencyAlertDialog';
 import { exportToCSV, exportToPDF, getDateRangeFilter } from '@/utils/exportUtils';
+import MobileHeader from './MobileHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface LibraryDashboardProps {
   onLogout: () => void;
@@ -25,6 +28,7 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const {
     students,
@@ -114,9 +118,17 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
     );
   };
 
+  const headerActions = [
+    {
+      label: 'Emergency Alert',
+      onClick: () => {}, // This will be handled by EmergencyAlertDialog
+      icon: <AlertTriangle className="w-4 h-4 mr-2" />
+    }
+  ];
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-900 mx-auto"></div>
           <p className="mt-4 text-blue-900">Loading library data...</p>
@@ -127,42 +139,30 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-blue-900 text-white p-4 shadow-lg">
-        <div className="container mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">Library Admin Dashboard</h1>
-            <p className="text-blue-200">AccessCircle - Library Management</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <EmergencyAlertDialog>
-              <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100">
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Emergency Alert
-              </Button>
-            </EmergencyAlertDialog>
-            <Button variant="secondary" onClick={onLogout}>
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
+      <MobileHeader
+        title="Library Admin Dashboard"
+        subtitle="AccessCircle - Library Management"
+        backgroundColor="bg-blue-900"
+        textColor="text-white"
+        actions={headerActions}
+        onLogout={onLogout}
+      />
 
-      <div className="container mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`container mx-auto p-4 sm:p-6 grid grid-cols-1 gap-4 sm:gap-6 ${isMobile ? 'max-w-full' : 'lg:grid-cols-3'}`}>
         {/* NFC Scanning Section */}
-        <Card className="lg:col-span-2">
+        <Card className={isMobile ? 'order-1' : 'lg:col-span-2'}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
               NFC Scanning System
             </CardTitle>
-            <CardDescription>Scan student NFC rings for entry/exit tracking</CardDescription>
+            <CardDescription className="text-sm">Scan student NFC rings for entry/exit tracking</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className={`grid gap-4 mb-6 ${isMobile ? 'grid-cols-1 space-y-2' : 'grid-cols-2'}`}>
               <Button 
                 size="lg" 
-                className="h-20 bg-green-600 hover:bg-green-700"
+                className="h-16 sm:h-20 bg-green-600 hover:bg-green-700 mobile-button"
                 onClick={() => handleNFCScan('in')}
                 disabled={isScanning}
               >
@@ -170,7 +170,7 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
               </Button>
               <Button 
                 size="lg" 
-                className="h-20 bg-red-600 hover:bg-red-700"
+                className="h-16 sm:h-20 bg-red-600 hover:bg-red-700 mobile-button"
                 onClick={() => handleNFCScan('out')}
                 disabled={isScanning}
               >
@@ -180,16 +180,16 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
 
             {currentStudent && (
               <div className="border rounded-lg p-4 bg-blue-50">
-                <h3 className="font-semibold mb-2">Last Scanned Student</h3>
+                <h3 className="font-semibold mb-2 text-sm sm:text-base">Last Scanned Student</h3>
                 <div className="flex items-center gap-4">
                   <img 
                     src={currentStudent.image_url || '/placeholder.svg'} 
                     alt={currentStudent.name}
-                    className="w-12 h-12 rounded-full bg-gray-200"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-200"
                   />
-                  <div>
-                    <p className="font-medium">{currentStudent.name}</p>
-                    <p className="text-sm text-gray-600">{currentStudent.usn}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base truncate">{currentStudent.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">{currentStudent.usn}</p>
                     <p className="text-xs text-gray-500">
                       Scanned at: {new Date().toLocaleString()}
                     </p>
@@ -201,33 +201,34 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
         </Card>
 
         {/* Quick Search */}
-        <Card>
+        <Card className={isMobile ? 'order-2' : ''}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Search className="w-4 h-4 sm:w-5 sm:h-5" />
               Quick Search
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="search">Student USN / Name</Label>
+                <Label htmlFor="search" className="text-sm">Student USN / Name</Label>
                 <Input
                   id="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search students..."
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  className="mobile-button"
                 />
               </div>
-              <Button className="w-full" onClick={handleSearch}>Search</Button>
+              <Button className="w-full mobile-button" onClick={handleSearch}>Search</Button>
               
               {searchResults.length > 0 && (
-                <div className="max-h-40 overflow-y-auto space-y-2">
+                <div className="max-h-32 sm:max-h-40 overflow-y-auto space-y-2">
                   {searchResults.map((student) => (
                     <div 
                       key={student.usn}
-                      className="p-2 border rounded cursor-pointer hover:bg-gray-50"
+                      className="p-3 border rounded cursor-pointer hover:bg-gray-50 mobile-button"
                       onClick={() => setCurrentStudent(student)}
                     >
                       <p className="font-medium text-sm">{student.name}</p>
@@ -241,20 +242,20 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
         </Card>
 
         {/* Book Management */}
-        <Card>
+        <Card className={isMobile ? 'order-3' : ''}>
           <CardHeader>
-            <CardTitle>Book Management</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Book Management</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <Button 
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-blue-600 hover:bg-blue-700 mobile-button"
                 onClick={() => setShowIssueForm(true)}
               >
                 Issue Books
               </Button>
               <Button 
-                className="w-full bg-orange-600 hover:bg-orange-700"
+                className="w-full bg-orange-600 hover:bg-orange-700 mobile-button"
                 onClick={() => setShowReturnForm(true)}
               >
                 Return Books
@@ -264,16 +265,16 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
         </Card>
 
         {/* Export & Filters */}
-        <Card>
+        <Card className={isMobile ? 'order-4' : ''}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Download className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Download className="w-4 h-4 sm:w-5 sm:h-5" />
               Export & Reports
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
+              <div className={`grid gap-2 ${isMobile ? 'grid-cols-1 space-y-2' : 'grid-cols-2'}`}>
                 <div>
                   <Label htmlFor="startDate" className="text-xs">Start Date</Label>
                   <Input
@@ -281,7 +282,7 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
                     type="date"
                     value={dateFilter.start}
                     onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
-                    className="text-xs"
+                    className="text-xs mobile-button"
                   />
                 </div>
                 <div>
@@ -291,18 +292,19 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
                     type="date"
                     value={dateFilter.end}
                     onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
-                    className="text-xs"
+                    className="text-xs mobile-button"
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
                 <p className="text-sm font-medium">Export Transactions:</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${isMobile ? 'grid-cols-1 space-y-1' : 'grid-cols-2'}`}>
                   <Button 
                     size="sm" 
                     variant="outline"
                     onClick={() => handleExport('csv', 'transactions')}
+                    className="mobile-button"
                   >
                     CSV
                   </Button>
@@ -310,6 +312,7 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
                     size="sm" 
                     variant="outline"
                     onClick={() => handleExport('pdf', 'transactions')}
+                    className="mobile-button"
                   >
                     PDF
                   </Button>
@@ -318,11 +321,12 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
 
               <div className="space-y-2">
                 <p className="text-sm font-medium">Export Entries:</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${isMobile ? 'grid-cols-1 space-y-1' : 'grid-cols-2'}`}>
                   <Button 
                     size="sm" 
                     variant="outline"
                     onClick={() => handleExport('csv', 'entries')}
+                    className="mobile-button"
                   >
                     CSV
                   </Button>
@@ -330,6 +334,7 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
                     size="sm" 
                     variant="outline"
                     onClick={() => handleExport('pdf', 'entries')}
+                    className="mobile-button"
                   >
                     PDF
                   </Button>
@@ -340,31 +345,33 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
         </Card>
 
         {/* Recent Activity */}
-        <Card className="lg:col-span-2">
+        <Card className={isMobile ? 'order-5 col-span-1' : 'lg:col-span-2'}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
               Recent Activity
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 max-h-80 sm:max-h-96 overflow-y-auto">
               {transactions.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No recent transactions</p>
               ) : (
                 transactions.slice(0, 10).map((transaction) => (
                   <div key={transaction.transaction_id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <User className="w-8 h-8 text-gray-400" />
-                      <div>
-                        <p className="font-medium">Book ID: {transaction.book_id}</p>
-                        <p className="text-sm text-gray-600">NFC UID: {transaction.nfc_uid_scanner}</p>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <User className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm sm:text-base">Book ID: {transaction.book_id}</p>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">NFC UID: {transaction.nfc_uid_scanner}</p>
                         <p className="text-xs text-gray-500">
                           {new Date(transaction.issue_date).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
-                    {getStatusBadge(transaction.status)}
+                    <div className="flex-shrink-0 ml-2">
+                      {getStatusBadge(transaction.status)}
+                    </div>
                   </div>
                 ))
               )}

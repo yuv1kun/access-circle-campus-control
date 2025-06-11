@@ -14,6 +14,8 @@ import NFCScanner from './NFCScanner';
 import StudentScanPopup from './StudentScanPopup';
 import EmergencyAlertDialog from './EmergencyAlertDialog';
 import ExportControls from './ExportControls';
+import MobileHeader from './MobileHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface GateDashboardProps {
   onLogout: () => void;
@@ -25,6 +27,7 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showPhotoManager, setShowPhotoManager] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   
   const { 
     entries, 
@@ -87,9 +90,22 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
     return colors[status];
   };
 
+  const headerActions = [
+    {
+      label: 'Manage Photos',
+      onClick: () => setShowPhotoManager(true),
+      icon: <Camera className="w-4 h-4 mr-2" />
+    },
+    {
+      label: 'Emergency Alert',
+      onClick: () => {}, // This will be handled by EmergencyAlertDialog
+      icon: <AlertTriangle className="w-4 h-4 mr-2" />
+    }
+  ];
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading gate data...</p>
@@ -101,25 +117,25 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
   if (showPhotoManager) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
-        {/* Header */}
-        <header className="bg-green-900 text-white p-4 shadow-lg">
-          <div className="container mx-auto flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Student Photo Manager</h1>
-              <p className="text-green-200">AccessCircle - Photo Management</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100" onClick={() => setShowPhotoManager(false)}>
-                Back to Dashboard
-              </Button>
-              <Button variant="secondary" onClick={onLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </header>
+        <MobileHeader
+          title="Student Photo Manager"
+          subtitle="AccessCircle - Photo Management"
+          backgroundColor="bg-green-900"
+          textColor="text-white"
+          actions={[]}
+          onLogout={onLogout}
+        />
 
-        <div className="container mx-auto p-6">
+        <div className="container mx-auto p-4 sm:p-6">
+          <div className="mb-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowPhotoManager(false)}
+              className="mobile-button"
+            >
+              Back to Dashboard
+            </Button>
+          </div>
           <StudentPhotoManager />
         </div>
       </div>
@@ -128,40 +144,24 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
-      {/* Header */}
-      <header className="bg-green-900 text-white p-4 shadow-lg">
-        <div className="container mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">Main Gate Dashboard</h1>
-            <p className="text-green-200">AccessCircle - Entry Management</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100" onClick={() => setShowPhotoManager(true)}>
-              <Camera className="w-4 h-4 mr-2" />
-              Manage Photos
-            </Button>
-            <EmergencyAlertDialog>
-              <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100">
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Emergency Alert
-              </Button>
-            </EmergencyAlertDialog>
-            <Button variant="secondary" onClick={onLogout}>
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
+      <MobileHeader
+        title="Main Gate Dashboard"
+        subtitle="AccessCircle - Entry Management"
+        backgroundColor="bg-green-900"
+        textColor="text-white"
+        actions={headerActions}
+        onLogout={onLogout}
+      />
 
-      <div className="container mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`container mx-auto p-4 sm:p-6 grid grid-cols-1 gap-4 sm:gap-6 ${isMobile ? 'max-w-full' : 'lg:grid-cols-3'}`}>
         {/* NFC Scanning Section */}
-        <Card className="lg:col-span-2">
+        <Card className={isMobile ? 'order-1' : 'lg:col-span-2'}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
               Gate Entry Recording
             </CardTitle>
-            <CardDescription>Continuous NFC monitoring system</CardDescription>
+            <CardDescription className="text-sm">Continuous NFC monitoring system</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -171,18 +171,18 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
                 setIsScanning={setIsScanning}
               />
               
-              <div className="grid grid-cols-3 gap-4 text-center">
+              <div className={`grid gap-3 text-center ${isMobile ? 'grid-cols-1 space-y-2' : 'grid-cols-3'}`}>
                 <div className="p-3 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">{dailyCount}</p>
-                  <p className="text-sm text-gray-600">Today's Entries</p>
+                  <p className="text-xl sm:text-2xl font-bold text-green-600">{dailyCount}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Today's Entries</p>
                 </div>
                 <div className="p-3 bg-orange-50 rounded-lg">
-                  <p className={`text-2xl font-bold ${getTrafficColor()}`}>{getTrafficStatus()}</p>
-                  <p className="text-sm text-gray-600">Traffic Status</p>
+                  <p className={`text-xl sm:text-2xl font-bold ${getTrafficColor()}`}>{getTrafficStatus()}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Traffic Status</p>
                 </div>
                 <div className="p-3 bg-red-50 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">{activeEntries}</p>
-                  <p className="text-sm text-gray-600">Active Entries</p>
+                  <p className="text-xl sm:text-2xl font-bold text-red-600">{activeEntries}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Active Entries</p>
                 </div>
               </div>
             </div>
@@ -190,10 +190,10 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
         </Card>
 
         {/* Quick Search */}
-        <Card>
+        <Card className={isMobile ? 'order-2' : ''}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Search className="w-4 h-4 sm:w-5 sm:h-5" />
               Student Search
             </CardTitle>
           </CardHeader>
@@ -204,21 +204,22 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search student USN or name..."
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                className="mobile-button"
               />
-              <Button className="w-full" onClick={handleSearch}>
+              <Button className="w-full mobile-button" onClick={handleSearch}>
                 Search
               </Button>
               
               {searchResults.length > 0 && (
-                <div className="space-y-2 max-h-40 overflow-y-auto">
+                <div className="space-y-2 max-h-32 sm:max-h-40 overflow-y-auto">
                   {searchResults.map((student) => (
                     <div 
                       key={student.usn}
-                      className="p-2 border rounded cursor-pointer hover:bg-gray-50"
+                      className="p-3 border rounded cursor-pointer hover:bg-gray-50 mobile-button"
                       onClick={() => selectStudent(student)}
                     >
-                      <p className="font-medium">{student.name}</p>
-                      <p className="text-sm text-gray-600">{student.usn}</p>
+                      <p className="font-medium text-sm">{student.name}</p>
+                      <p className="text-xs text-gray-600">{student.usn}</p>
                     </div>
                   ))}
                 </div>
@@ -228,10 +229,10 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
         </Card>
 
         {/* Export Controls */}
-        <Card className="lg:col-span-3">
+        <Card className={isMobile ? 'order-3 col-span-1' : 'lg:col-span-3'}>
           <CardHeader>
-            <CardTitle>Export Gate Logs</CardTitle>
-            <CardDescription>Export entry logs to CSV or PDF format</CardDescription>
+            <CardTitle className="text-base sm:text-lg">Export Gate Logs</CardTitle>
+            <CardDescription className="text-sm">Export entry logs to CSV or PDF format</CardDescription>
           </CardHeader>
           <CardContent>
             <ExportControls entries={entries} />
@@ -239,16 +240,16 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
         </Card>
 
         {/* Live Entry Log */}
-        <Card className="lg:col-span-3">
+        <Card className={isMobile ? 'order-4 col-span-1' : 'lg:col-span-3'}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
               Live Entry Log
             </CardTitle>
-            <CardDescription>Real-time gate entry monitoring</CardDescription>
+            <CardDescription className="text-sm">Real-time gate entry monitoring</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 max-h-80 sm:max-h-96 overflow-y-auto">
               {entries.length === 0 ? (
                 <p className="text-center text-gray-500 py-4">No entries recorded yet</p>
               ) : (
@@ -257,26 +258,26 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
                     key={entry.log_id} 
                     className="flex items-center justify-between p-3 border rounded-lg border-gray-200"
                   >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-10 h-10">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Avatar className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} flex-shrink-0`}>
                         <AvatarImage 
                           src={entry.student?.image_url} 
                           alt={entry.student?.name || 'Student'} 
                         />
                         <AvatarFallback>
-                          <User className="w-6 h-6" />
+                          <User className="w-4 h-4 sm:w-6 sm:h-6" />
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-medium">{entry.student?.name || 'Unknown'}</p>
-                        <p className="text-sm text-gray-600">{entry.student?.usn || entry.nfc_uid_scanner}</p>
-                        <p className="text-xs text-gray-500">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm sm:text-base truncate">{entry.student?.name || 'Unknown'}</p>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">{entry.student?.usn || entry.nfc_uid_scanner}</p>
+                        <p className="text-xs text-gray-500 truncate">
                           {entry.entry_time ? new Date(entry.entry_time).toLocaleString() : 'No entry time'}
                           {entry.exit_time && ` - ${new Date(entry.exit_time).toLocaleString()}`}
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
                       {getSecurityBadge(entry.exit_time ? 'cleared' : 'pending')}
                       <span className="text-xs text-gray-500">
                         {entry.exit_time ? 'Exited' : 'Active'}

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +8,8 @@ import { useHostelData } from '@/hooks/useHostelData';
 import { exportToCSV, exportToPDF, getDateRangeFilter } from '@/utils/exportUtils';
 import HostelSearch from '@/components/HostelSearch';
 import HostelNFCScanner from '@/components/HostelNFCScanner';
+import MobileHeader from '@/components/MobileHeader';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface HostelDashboardProps {
   onLogout: () => void;
@@ -14,6 +17,7 @@ interface HostelDashboardProps {
 
 const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
   const { entries, lateEntries, stats, isLoading, error } = useHostelData();
+  const isMobile = useIsMobile();
 
   const handleExportCSV = () => {
     const exportData = entries.map(entry => ({
@@ -59,16 +63,29 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
     return 'Unknown';
   };
 
+  const headerActions = [
+    {
+      label: 'Export CSV',
+      onClick: handleExportCSV,
+      icon: <Download className="w-4 h-4 mr-2" />
+    },
+    {
+      label: 'Export PDF',
+      onClick: handleExportPDF,
+      icon: <FileText className="w-4 h-4 mr-2" />
+    }
+  ];
+
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-rose-100 flex items-center justify-center">
-        <Card className="max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-rose-100 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle className="text-red-600">Database Connection Error</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-600 mb-4">Unable to connect to the hostel database. Please check your connection and try again.</p>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
+            <Button onClick={() => window.location.reload()} className="w-full">Retry</Button>
           </CardContent>
         </Card>
       </div>
@@ -77,61 +94,37 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-rose-100">
-      {/* Header */}
-      <header className="bg-red-900 text-white p-4 shadow-lg">
-        <div className="container mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">Hostel Admin Dashboard</h1>
-            <p className="text-red-200">AccessCircle - Residential Management</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleExportCSV}
-              className="text-black border-white hover:bg-red-800 hover:text-white"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleExportPDF}
-              className="text-black border-white hover:bg-red-800 hover:text-white"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Export PDF
-            </Button>
-            <Button variant="secondary" onClick={onLogout}>
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
+      <MobileHeader
+        title="Hostel Admin Dashboard"
+        subtitle="AccessCircle - Residential Management"
+        backgroundColor="bg-red-900"
+        textColor="text-white"
+        actions={headerActions}
+        onLogout={onLogout}
+      />
 
-      <div className="container mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`container mx-auto p-4 sm:p-6 grid grid-cols-1 gap-4 sm:gap-6 ${isMobile ? 'max-w-full' : 'lg:grid-cols-3'}`}>
         {/* NFC Scanning Section */}
-        <div className="lg:col-span-2">
+        <div className={isMobile ? 'order-1' : 'lg:col-span-2'}>
           <HostelNFCScanner />
         </div>
 
         {/* Quick Search */}
-        <div className="lg:col-span-1">
+        <div className={isMobile ? 'order-2' : 'lg:col-span-1'}>
           <HostelSearch />
         </div>
 
         {/* Late Entries Alert */}
-        <Card className="lg:col-span-1">
+        <Card className={isMobile ? 'order-3' : 'lg:col-span-1'}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-600">
-              <AlertTriangle className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-red-600 text-base sm:text-lg">
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
               Late Entries ({lateEntries.length})
             </CardTitle>
-            <CardDescription>Post-curfew arrivals requiring attention</CardDescription>
+            <CardDescription className="text-sm">Post-curfew arrivals requiring attention</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-2 max-h-48 sm:max-h-64 overflow-y-auto">
               {isLoading ? (
                 <div className="text-center py-4">
                   <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
@@ -139,7 +132,7 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
                 </div>
               ) : lateEntries.length > 0 ? (
                 lateEntries.map((entry) => (
-                  <div key={entry.log_id} className="p-2 border border-red-200 rounded bg-red-50">
+                  <div key={entry.log_id} className="p-3 border border-red-200 rounded bg-red-50">
                     <p className="font-medium text-sm">{entry.student?.name || 'Unknown Student'}</p>
                     <p className="text-xs text-gray-600">
                       {entry.student?.usn || 'Unknown USN'} • {entry.entry_time ? new Date(entry.entry_time).toLocaleString() : 'No timestamp'}
@@ -154,16 +147,16 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
         </Card>
 
         {/* All Entries Log */}
-        <Card className="lg:col-span-2">
+        <Card className={isMobile ? 'order-4 col-span-1' : 'lg:col-span-2'}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
               Entry/Exit Log
             </CardTitle>
-            <CardDescription>Complete hostel access history</CardDescription>
+            <CardDescription className="text-sm">Complete hostel access history</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
+            <div className="space-y-3 max-h-80 sm:max-h-96 overflow-y-auto">
               {isLoading ? (
                 <div className="text-center py-8">
                   <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -179,23 +172,23 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
                         : 'border-gray-200'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <User className="w-8 h-8 text-gray-400" />
-                      <div>
-                        <p className="font-medium">{entry.student?.name || 'Unknown Student'}</p>
-                        <p className="text-sm text-gray-600">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <User className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm sm:text-base truncate">{entry.student?.name || 'Unknown Student'}</p>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">
                           {entry.student?.usn || 'Unknown USN'} • {getAccessType(entry)}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 truncate">
                           {entry.entry_time && `In: ${new Date(entry.entry_time).toLocaleString()}`}
                           {entry.entry_time && entry.exit_time && ' • '}
                           {entry.exit_time && `Out: ${new Date(entry.exit_time).toLocaleString()}`}
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
                       {getTimeBadge(entry)}
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 truncate max-w-20">
                         {entry.reader_id || 'Unknown Reader'}
                       </span>
                     </div>
