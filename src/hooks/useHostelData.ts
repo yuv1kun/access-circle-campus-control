@@ -65,18 +65,30 @@ export const useHostelData = () => {
 
   // Real-time subscription for new entries
   useEffect(() => {
-    const subscription = supabase
-      .channel('hostel_access_logs')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'Hostel_Access_Logs' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['hostel-entries'] });
-        }
-      )
-      .subscribe();
+    let subscription: any = null;
+
+    const setupSubscription = () => {
+      subscription = supabase
+        .channel('hostel_access_logs_channel')
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'Hostel_Access_Logs' },
+          (payload) => {
+            console.log('Real-time update received:', payload);
+            queryClient.invalidateQueries({ queryKey: ['hostel-entries'] });
+          }
+        )
+        .subscribe((status) => {
+          console.log('Subscription status:', status);
+        });
+    };
+
+    setupSubscription();
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        console.log('Cleaning up subscription...');
+        supabase.removeChannel(subscription);
+      }
     };
   }, [queryClient]);
 
