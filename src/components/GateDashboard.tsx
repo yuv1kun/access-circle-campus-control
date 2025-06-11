@@ -8,7 +8,12 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Shield, Clock, User, AlertTriangle, Camera } from 'lucide-react';
 import { useGateData } from '@/hooks/useGateData';
+import { useNFCScanning } from '@/hooks/useNFCScanning';
 import StudentPhotoManager from './StudentPhotoManager';
+import NFCScanner from './NFCScanner';
+import StudentScanPopup from './StudentScanPopup';
+import EmergencyAlertDialog from './EmergencyAlertDialog';
+import ExportControls from './ExportControls';
 
 interface GateDashboardProps {
   onLogout: () => void;
@@ -26,32 +31,16 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
     loading, 
     dailyCount, 
     activeEntries, 
-    recordGateEntry, 
     searchStudents 
   } = useGateData();
 
-  const handleNFCScan = async () => {
-    if (!searchQuery.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a student USN to record entry",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsScanning(true);
-    
-    try {
-      await recordGateEntry(searchQuery.trim());
-      setSearchQuery('');
-      setSearchResults([]);
-    } catch (error) {
-      // Error is already handled in the hook
-    } finally {
-      setIsScanning(false);
-    }
-  };
+  const {
+    scannedStudent,
+    showScanPopup,
+    scanSuccess,
+    handleNFCScan,
+    closeScanPopup
+  } = useNFCScanning();
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -66,13 +55,6 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
   const selectStudent = (student: any) => {
     setSearchQuery(student.usn);
     setSearchResults([]);
-  };
-
-  const getSecurityStatus = () => {
-    // Simple logic: flag if there are too many active entries
-    if (activeEntries > 10) return 'flagged';
-    if (activeEntries > 5) return 'pending';
-    return 'cleared';
   };
 
   const getSecurityBadge = (status: string) => {
@@ -158,10 +140,12 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
               <Camera className="w-4 h-4 mr-2" />
               Manage Photos
             </Button>
-            <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100">
-              <AlertTriangle className="w-4 h-4 mr-2" />
-              Emergency Alert
-            </Button>
+            <EmergencyAlertDialog>
+              <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100">
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Emergency Alert
+              </Button>
+            </EmergencyAlertDialog>
             <Button variant="secondary" onClick={onLogout}>
               Logout
             </Button>
@@ -177,18 +161,15 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
               <Shield className="w-5 h-5" />
               Gate Entry Recording
             </CardTitle>
-            <CardDescription>24/7 NFC monitoring system</CardDescription>
+            <CardDescription>Continuous NFC monitoring system</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <Button 
-                size="lg" 
-                className="w-full h-20 bg-green-600 hover:bg-green-700"
-                onClick={handleNFCScan}
-                disabled={isScanning || !searchQuery.trim()}
-              >
-                {isScanning ? 'Recording Entry...' : 'Record Entry'}
-              </Button>
+              <NFCScanner
+                onScanSuccess={handleNFCScan}
+                isScanning={isScanning}
+                setIsScanning={setIsScanning}
+              />
               
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="p-3 bg-green-50 rounded-lg">
@@ -246,7 +227,18 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
           </CardContent>
         </Card>
 
-        {/* Live Entry Log - Updated to show photos properly */}
+        {/* Export Controls */}
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Export Gate Logs</CardTitle>
+            <CardDescription>Export entry logs to CSV or PDF format</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ExportControls entries={entries} />
+          </CardContent>
+        </Card>
+
+        {/* Live Entry Log */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -263,9 +255,7 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
                 entries.map((entry) => (
                   <div 
                     key={entry.log_id} 
-                    className={`flex items-center justify-between p-3 border rounded-lg ${
-                      getSecurityStatus() === 'flagged' ? 'border-red-200 bg-red-50' : 'border-gray-200'
-                    }`}
+                    className="flex items-center justify-between p-3 border rounded-lg border-gray-200"
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="w-10 h-10">
@@ -299,6 +289,14 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Student Scan Popup */}
+      <StudentScanPopup
+        isOpen={showScanPopup}
+        student={scannedStudent}
+        scanSuccess={scanSuccess}
+        onClose={closeScanPopup}
+      />
     </div>
   );
 };
