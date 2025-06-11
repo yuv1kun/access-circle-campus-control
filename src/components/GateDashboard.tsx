@@ -1,76 +1,75 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Shield, Clock, User, AlertTriangle } from 'lucide-react';
+import { useGateData } from '@/hooks/useGateData';
 
 interface GateDashboardProps {
   onLogout: () => void;
 }
 
-interface GateEntry {
-  id: string;
-  studentId: string;
-  studentName: string;
-  entryTime: string;
-  securityStatus: 'cleared' | 'flagged' | 'pending';
-}
-
 const GateDashboard = ({ onLogout }: GateDashboardProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [recentEntries, setRecentEntries] = useState<GateEntry[]>([]);
-  const [trafficStatus, setTrafficStatus] = useState<'Normal' | 'Congested' | 'Closed'>('Normal');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const { toast } = useToast();
+  
+  const { 
+    entries, 
+    loading, 
+    dailyCount, 
+    activeEntries, 
+    recordGateEntry, 
+    searchStudents 
+  } = useGateData();
 
-  const sampleEntries: GateEntry[] = [
-    { id: '1', studentId: 'CS21001', studentName: 'John Doe', entryTime: '2024-06-11 08:30', securityStatus: 'cleared' },
-    { id: '2', studentId: 'CS21002', studentName: 'Jane Smith', entryTime: '2024-06-11 08:25', securityStatus: 'cleared' },
-    { id: '3', studentId: 'CS21003', studentName: 'Mike Johnson', entryTime: '2024-06-11 08:20', securityStatus: 'flagged' },
-  ];
+  const handleNFCScan = async () => {
+    if (!searchQuery.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a student USN to record entry",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  useEffect(() => {
-    setRecentEntries(sampleEntries);
-    
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      const newEntry: GateEntry = {
-        id: Date.now().toString(),
-        studentId: `CS210${Math.floor(Math.random() * 100).toString().padStart(2, '0')}`,
-        studentName: `Student ${Math.floor(Math.random() * 100)}`,
-        entryTime: new Date().toLocaleString(),
-        securityStatus: Math.random() > 0.9 ? 'flagged' : 'cleared'
-      };
-      
-      setRecentEntries(prev => [newEntry, ...prev.slice(0, 9)]);
-    }, 30000); // New entry every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleNFCScan = () => {
     setIsScanning(true);
     
-    setTimeout(() => {
-      const mockEntry: GateEntry = {
-        id: Date.now().toString(),
-        studentId: 'CS21005',
-        studentName: 'Alice Brown',
-        entryTime: new Date().toLocaleString(),
-        securityStatus: 'cleared'
-      };
-
-      setRecentEntries(prev => [mockEntry, ...prev.slice(0, 9)]);
+    try {
+      await recordGateEntry(searchQuery.trim());
+      setSearchQuery('');
+      setSearchResults([]);
+    } catch (error) {
+      // Error is already handled in the hook
+    } finally {
       setIsScanning(false);
-      
-      toast({
-        title: "Entry Recorded",
-        description: `${mockEntry.studentName} (${mockEntry.studentId}) entry logged successfully`,
-      });
-    }, 2000);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const results = await searchStudents(searchQuery);
+    setSearchResults(results);
+  };
+
+  const selectStudent = (student: any) => {
+    setSearchQuery(student.usn);
+    setSearchResults([]);
+  };
+
+  const getSecurityStatus = () => {
+    // Simple logic: flag if there are too many active entries
+    if (activeEntries > 10) return 'flagged';
+    if (activeEntries > 5) return 'pending';
+    return 'cleared';
   };
 
   const getSecurityBadge = (status: string) => {
@@ -87,14 +86,32 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
     );
   };
 
+  const getTrafficStatus = () => {
+    if (activeEntries > 15) return 'Congested';
+    if (activeEntries > 25) return 'Closed';
+    return 'Normal';
+  };
+
   const getTrafficColor = () => {
+    const status = getTrafficStatus();
     const colors = {
       Normal: 'text-green-600',
       Congested: 'text-orange-600',
       Closed: 'text-red-600'
     };
-    return colors[trafficStatus];
+    return colors[status];
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading gate data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
@@ -133,25 +150,23 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
                 size="lg" 
                 className="w-full h-20 bg-green-600 hover:bg-green-700"
                 onClick={handleNFCScan}
-                disabled={isScanning}
+                disabled={isScanning || !searchQuery.trim()}
               >
                 {isScanning ? 'Recording Entry...' : 'Record Entry'}
               </Button>
               
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="p-3 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">{recentEntries.length}</p>
+                  <p className="text-2xl font-bold text-green-600">{dailyCount}</p>
                   <p className="text-sm text-gray-600">Today's Entries</p>
                 </div>
                 <div className="p-3 bg-orange-50 rounded-lg">
-                  <p className={`text-2xl font-bold ${getTrafficColor()}`}>{trafficStatus}</p>
+                  <p className={`text-2xl font-bold ${getTrafficColor()}`}>{getTrafficStatus()}</p>
                   <p className="text-sm text-gray-600">Traffic Status</p>
                 </div>
                 <div className="p-3 bg-red-50 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">
-                    {recentEntries.filter(e => e.securityStatus === 'flagged').length}
-                  </p>
-                  <p className="text-sm text-gray-600">Security Alerts</p>
+                  <p className="text-2xl font-bold text-red-600">{activeEntries}</p>
+                  <p className="text-sm text-gray-600">Active Entries</p>
                 </div>
               </div>
             </div>
@@ -163,7 +178,7 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="w-5 h-5" />
-              Quick Search
+              Student Search
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -171,9 +186,27 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search student ID..."
+                placeholder="Search student USN or name..."
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               />
-              <Button className="w-full">Search</Button>
+              <Button className="w-full" onClick={handleSearch}>
+                Search
+              </Button>
+              
+              {searchResults.length > 0 && (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {searchResults.map((student) => (
+                    <div 
+                      key={student.usn}
+                      className="p-2 border rounded cursor-pointer hover:bg-gray-50"
+                      onClick={() => selectStudent(student)}
+                    >
+                      <p className="font-medium">{student.name}</p>
+                      <p className="text-sm text-gray-600">{student.usn}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -189,24 +222,44 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {recentEntries.map((entry) => (
-                <div 
-                  key={entry.id} 
-                  className={`flex items-center justify-between p-3 border rounded-lg ${
-                    entry.securityStatus === 'flagged' ? 'border-red-200 bg-red-50' : 'border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <User className="w-8 h-8 text-gray-400" />
-                    <div>
-                      <p className="font-medium">{entry.studentName}</p>
-                      <p className="text-sm text-gray-600">{entry.studentId}</p>
-                      <p className="text-xs text-gray-500">{entry.entryTime}</p>
+              {entries.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">No entries recorded yet</p>
+              ) : (
+                entries.map((entry) => (
+                  <div 
+                    key={entry.log_id} 
+                    className={`flex items-center justify-between p-3 border rounded-lg ${
+                      getSecurityStatus() === 'flagged' ? 'border-red-200 bg-red-50' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {entry.student?.image_url ? (
+                        <img 
+                          src={entry.student.image_url} 
+                          alt={entry.student.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-8 h-8 text-gray-400" />
+                      )}
+                      <div>
+                        <p className="font-medium">{entry.student?.name || 'Unknown'}</p>
+                        <p className="text-sm text-gray-600">{entry.student?.usn || entry.nfc_uid_scanner}</p>
+                        <p className="text-xs text-gray-500">
+                          {entry.entry_time ? new Date(entry.entry_time).toLocaleString() : 'No entry time'}
+                          {entry.exit_time && ` - ${new Date(entry.exit_time).toLocaleString()}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {getSecurityBadge(entry.exit_time ? 'cleared' : 'pending')}
+                      <span className="text-xs text-gray-500">
+                        {entry.exit_time ? 'Exited' : 'Active'}
+                      </span>
                     </div>
                   </div>
-                  {getSecurityBadge(entry.securityStatus)}
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
