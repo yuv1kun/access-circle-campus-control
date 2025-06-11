@@ -8,17 +8,17 @@ import { BookTransaction } from '@/hooks/useLibraryData';
 interface ReturnBookFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onReturn: (transactionId: string) => Promise<void>;
+  onReturn: (transactionId: number) => Promise<void>;
   transactions: BookTransaction[];
 }
 
 const ReturnBookForm = ({ isOpen, onClose, onReturn, transactions }: ReturnBookFormProps) => {
-  const [selectedBooks, setSelectedBooks] = useState<string[]>([]);
+  const [selectedBooks, setSelectedBooks] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const issuedBooks = transactions.filter(t => t.status === 'issued');
 
-  const handleBookSelect = (transactionId: string) => {
+  const handleBookSelect = (transactionId: number) => {
     setSelectedBooks(prev => 
       prev.includes(transactionId) 
         ? prev.filter(id => id !== transactionId)
@@ -58,11 +58,11 @@ const ReturnBookForm = ({ isOpen, onClose, onReturn, transactions }: ReturnBookF
                 <div 
                   key={transaction.transaction_id}
                   className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedBooks.includes(transaction.transaction_id.toString()) 
+                    selectedBooks.includes(transaction.transaction_id) 
                       ? 'bg-blue-50 border-blue-300' 
                       : 'hover:bg-gray-50'
                   }`}
-                  onClick={() => handleBookSelect(transaction.transaction_id.toString())}
+                  onClick={() => handleBookSelect(transaction.transaction_id)}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -80,8 +80,8 @@ const ReturnBookForm = ({ isOpen, onClose, onReturn, transactions }: ReturnBookF
                       </Badge>
                       <input
                         type="checkbox"
-                        checked={selectedBooks.includes(transaction.transaction_id.toString())}
-                        onChange={() => handleBookSelect(transaction.transaction_id.toString())}
+                        checked={selectedBooks.includes(transaction.transaction_id)}
+                        onChange={() => handleBookSelect(transaction.transaction_id)}
                         className="w-4 h-4"
                       />
                     </div>
