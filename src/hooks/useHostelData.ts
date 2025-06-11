@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +32,8 @@ export interface HostelStats {
 export const useHostelData = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const subscriptionRef = useRef<any>(null);
+  const isSubscribedRef = useRef(false);
 
   // Fetch hostel entries with student information
   const { data: entries = [], isLoading, error } = useQuery({
@@ -65,30 +67,56 @@ export const useHostelData = () => {
 
   // Real-time subscription for new entries
   useEffect(() => {
-    let subscription: any = null;
+    const setupSubscription = async () => {
+      // Prevent multiple subscriptions
+      if (isSubscribedRef.current || subscriptionRef.current) {
+        console.log('Subscription already exists, skipping...');
+        return;
+      }
 
-    const setupSubscription = () => {
-      subscription = supabase
-        .channel('hostel_access_logs_channel')
-        .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'Hostel_Access_Logs' },
-          (payload) => {
-            console.log('Real-time update received:', payload);
-            queryClient.invalidateQueries({ queryKey: ['hostel-entries'] });
-          }
-        )
-        .subscribe((status) => {
-          console.log('Subscription status:', status);
-        });
+      try {
+        console.log('Setting up new subscription...');
+        isSubscribedRef.current = true;
+        
+        subscriptionRef.current = supabase
+          .channel(`hostel_access_logs_${Date.now()}`) // Unique channel name
+          .on('postgres_changes', 
+            { event: '*', schema: 'public', table: 'Hostel_Access_Logs' },
+            (payload) => {
+              console.log('Real-time update received:', payload);
+              queryClient.invalidateQueries({ queryKey: ['hostel-entries'] });
+            }
+          )
+          .subscribe((status) => {
+            console.log('Subscription status:', status);
+            if (status === 'CLOSED') {
+              isSubscribedRef.current = false;
+            }
+          });
+      } catch (error) {
+        console.error('Subscription setup error:', error);
+        isSubscribedRef.current = false;
+      }
     };
 
     setupSubscription();
 
     return () => {
-      if (subscription) {
-        console.log('Cleaning up subscription...');
-        supabase.removeChannel(subscription);
-      }
+      const cleanup = async () => {
+        if (subscriptionRef.current && isSubscribedRef.current) {
+          console.log('Cleaning up subscription...');
+          try {
+            await supabase.removeChannel(subscriptionRef.current);
+            subscriptionRef.current = null;
+            isSubscribedRef.current = false;
+            console.log('Subscription cleaned up successfully');
+          } catch (error) {
+            console.error('Error cleaning up subscription:', error);
+          }
+        }
+      };
+      
+      cleanup();
     };
   }, [queryClient]);
 
