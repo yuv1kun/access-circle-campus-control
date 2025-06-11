@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -66,7 +65,12 @@ export const useLibraryData = () => {
       if (transactionsData.error) {
         console.error('Transactions fetch error:', transactionsData.error);
       } else if (transactionsData.data) {
-        setTransactions(transactionsData.data);
+        // Type assertion to ensure data conforms to our interface
+        const typedTransactions = transactionsData.data.map(transaction => ({
+          ...transaction,
+          status: transaction.status as 'issued' | 'returned' | 'overdue'
+        }));
+        setTransactions(typedTransactions);
       }
 
       if (entriesData.error) {
