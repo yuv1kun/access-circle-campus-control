@@ -1,71 +1,103 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, BookOpen, Clock, User, AlertTriangle } from 'lucide-react';
+import { Search, BookOpen, Clock, User, AlertTriangle, Download, Calendar } from 'lucide-react';
+import { useLibraryData, Student } from '@/hooks/useLibraryData';
+import IssueBookForm from '@/components/IssueBookForm';
+import ReturnBookForm from '@/components/ReturnBookForm';
+import { exportToCSV, exportToPDF, getDateRangeFilter } from '@/utils/exportUtils';
 
 interface LibraryDashboardProps {
   onLogout: () => void;
 }
 
-interface Student {
-  id: string;
-  name: string;
-  photo: string;
-  lastVisits: string[];
-}
-
-interface BookTransaction {
-  id: string;
-  studentId: string;
-  studentName: string;
-  bookTitle: string;
-  issueDate: string;
-  status: 'issued' | 'returned' | 'overdue';
-}
-
 const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [recentActivity, setRecentActivity] = useState<BookTransaction[]>([]);
+  const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
+  const [showIssueForm, setShowIssueForm] = useState(false);
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
   const { toast } = useToast();
 
-  // Sample data
-  const sampleTransactions: BookTransaction[] = [
-    { id: '1', studentId: 'CS21001', studentName: 'John Doe', bookTitle: 'Data Structures', issueDate: '2024-06-10', status: 'issued' },
-    { id: '2', studentId: 'CS21002', studentName: 'Jane Smith', bookTitle: 'Machine Learning', issueDate: '2024-06-09', status: 'returned' },
-    { id: '3', studentId: 'CS21003', studentName: 'Mike Johnson', bookTitle: 'Database Systems', issueDate: '2024-06-05', status: 'overdue' },
-  ];
+  const {
+    students,
+    transactions,
+    entries,
+    loading,
+    searchStudents,
+    recordEntry,
+    issueBook,
+    returnBook,
+  } = useLibraryData();
 
-  useEffect(() => {
-    setRecentActivity(sampleTransactions);
-  }, []);
-
-  const handleNFCScan = (type: 'in' | 'out') => {
+  const handleNFCScan = async (type: 'in' | 'out') => {
     setIsScanning(true);
     
-    // Simulate NFC scan
-    setTimeout(() => {
-      const mockStudent: Student = {
-        id: 'CS21004',
-        name: 'Alice Brown',
-        photo: '/placeholder.svg',
-        lastVisits: ['2024-06-09 14:30', '2024-06-08 10:15', '2024-06-07 16:45']
-      };
-
-      setCurrentStudent(mockStudent);
+    try {
+      // Simulate NFC scan - in real implementation, this would interface with NFC hardware
+      setTimeout(async () => {
+        const mockStudentId = 'CS21004'; // In real app, this comes from NFC scan
+        const student = await recordEntry(mockStudentId, type);
+        setCurrentStudent(student);
+        setIsScanning(false);
+      }, 2000);
+    } catch (error) {
       setIsScanning(false);
-      
+      console.error('NFC scan error:', error);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const results = await searchStudents(searchQuery);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Search error:', error);
       toast({
-        title: `Student ${type === 'in' ? 'Check-In' : 'Check-Out'} Successful`,
-        description: `${mockStudent.name} (${mockStudent.id}) recorded at ${new Date().toLocaleTimeString()}`,
+        title: "Search Error",
+        description: "Failed to search students",
+        variant: "destructive",
       });
-    }, 2000);
+    }
+  };
+
+  const handleExport = (format: 'csv' | 'pdf', dataType: 'transactions' | 'entries') => {
+    const data = dataType === 'transactions' ? transactions : entries;
+    const filteredData = getDateRangeFilter(data, dateFilter.start, dateFilter.end);
+    
+    if (filteredData.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No data available for export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const filename = `library_${dataType}_${new Date().toISOString().split('T')[0]}`;
+    
+    if (format === 'csv') {
+      exportToCSV(filteredData, filename);
+    } else {
+      exportToPDF(filteredData, filename);
+    }
+
+    toast({
+      title: "Export Successful",
+      description: `${dataType} exported as ${format.toUpperCase()}`,
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -81,6 +113,17 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
       </Badge>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-900 mx-auto"></div>
+          <p className="mt-4 text-blue-900">Loading library data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -138,14 +181,16 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
                 <h3 className="font-semibold mb-2">Last Scanned Student</h3>
                 <div className="flex items-center gap-4">
                   <img 
-                    src={currentStudent.photo} 
+                    src={currentStudent.photo_url || '/placeholder.svg'} 
                     alt={currentStudent.name}
                     className="w-12 h-12 rounded-full bg-gray-200"
                   />
                   <div>
                     <p className="font-medium">{currentStudent.name}</p>
                     <p className="text-sm text-gray-600">{currentStudent.id}</p>
-                    <p className="text-xs text-gray-500">Last visits: {currentStudent.lastVisits[0]}</p>
+                    <p className="text-xs text-gray-500">
+                      Scanned at: {new Date().toLocaleString()}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -170,9 +215,25 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search students..."
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
               </div>
-              <Button className="w-full">Search</Button>
+              <Button className="w-full" onClick={handleSearch}>Search</Button>
+              
+              {searchResults.length > 0 && (
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {searchResults.map((student) => (
+                    <div 
+                      key={student.id}
+                      className="p-2 border rounded cursor-pointer hover:bg-gray-50"
+                      onClick={() => setCurrentStudent(student)}
+                    >
+                      <p className="font-medium text-sm">{student.name}</p>
+                      <p className="text-xs text-gray-600">{student.id}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -184,12 +245,94 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <Button className="w-full bg-blue-600 hover:bg-blue-700">
+              <Button 
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowIssueForm(true)}
+              >
                 Issue Books
               </Button>
-              <Button className="w-full bg-orange-600 hover:bg-orange-700">
+              <Button 
+                className="w-full bg-orange-600 hover:bg-orange-700"
+                onClick={() => setShowReturnForm(true)}
+              >
                 Return Books
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Export & Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5" />
+              Export & Reports
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="startDate" className="text-xs">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={dateFilter.start}
+                    onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
+                    className="text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endDate" className="text-xs">End Date</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={dateFilter.end}
+                    onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Export Transactions:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleExport('csv', 'transactions')}
+                  >
+                    CSV
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleExport('pdf', 'transactions')}
+                  >
+                    PDF
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Export Entries:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleExport('csv', 'entries')}
+                  >
+                    CSV
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleExport('pdf', 'entries')}
+                  >
+                    PDF
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -203,24 +346,45 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {recentActivity.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <User className="w-8 h-8 text-gray-400" />
-                    <div>
-                      <p className="font-medium">{transaction.studentName}</p>
-                      <p className="text-sm text-gray-600">{transaction.bookTitle}</p>
-                      <p className="text-xs text-gray-500">{transaction.issueDate}</p>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {transactions.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No recent transactions</p>
+              ) : (
+                transactions.slice(0, 10).map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <User className="w-8 h-8 text-gray-400" />
+                      <div>
+                        <p className="font-medium">{transaction.student_name}</p>
+                        <p className="text-sm text-gray-600">{transaction.book_title}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(transaction.issue_date).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
+                    {getStatusBadge(transaction.status)}
                   </div>
-                  {getStatusBadge(transaction.status)}
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Forms */}
+      <IssueBookForm 
+        isOpen={showIssueForm}
+        onClose={() => setShowIssueForm(false)}
+        onIssue={issueBook}
+        currentStudent={currentStudent}
+      />
+      
+      <ReturnBookForm 
+        isOpen={showReturnForm}
+        onClose={() => setShowReturnForm(false)}
+        onReturn={returnBook}
+        transactions={transactions}
+      />
     </div>
   );
 };
