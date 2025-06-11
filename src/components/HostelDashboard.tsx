@@ -1,91 +1,80 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { Search, Shield, Clock, User, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Clock, User, Download, FileText } from 'lucide-react';
+import { useHostelData } from '@/hooks/useHostelData';
+import { exportToCSV, exportToPDF, getDateRangeFilter } from '@/utils/exportUtils';
+import HostelSearch from '@/components/HostelSearch';
+import HostelNFCScanner from '@/components/HostelNFCScanner';
 
 interface HostelDashboardProps {
   onLogout: () => void;
 }
 
-interface HostelEntry {
-  id: string;
-  studentId: string;
-  studentName: string;
-  roomNumber: string;
-  entryTime: string;
-  exitTime?: string;
-  isLate: boolean;
-}
-
 const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
-  const [isScanning, setIsScanning] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [recentEntries, setRecentEntries] = useState<HostelEntry[]>([]);
-  const [lateEntries, setLateEntries] = useState<HostelEntry[]>([]);
-  const { toast } = useToast();
+  const { entries, lateEntries, stats, isLoading, error } = useHostelData();
 
-  const sampleEntries: HostelEntry[] = [
-    { id: '1', studentId: 'CS21001', studentName: 'John Doe', roomNumber: 'A-101', entryTime: '2024-06-11 19:30', isLate: false },
-    { id: '2', studentId: 'CS21002', studentName: 'Jane Smith', roomNumber: 'B-205', entryTime: '2024-06-11 22:15', isLate: true },
-    { id: '3', studentId: 'CS21003', studentName: 'Mike Johnson', roomNumber: 'C-304', entryTime: '2024-06-11 21:45', isLate: false },
-  ];
-
-  useEffect(() => {
-    setRecentEntries(sampleEntries);
-    setLateEntries(sampleEntries.filter(entry => entry.isLate));
-  }, []);
-
-  const handleNFCScan = (type: 'in' | 'out') => {
-    setIsScanning(true);
+  const handleExportCSV = () => {
+    const exportData = entries.map(entry => ({
+      'Log ID': entry.log_id,
+      'Student Name': entry.student?.name || 'Unknown',
+      'USN': entry.student?.usn || 'Unknown',
+      'Entry Time': entry.entry_time ? new Date(entry.entry_time).toLocaleString() : 'N/A',
+      'Exit Time': entry.exit_time ? new Date(entry.exit_time).toLocaleString() : 'N/A',
+      'Date': entry.log_date,
+      'Reader ID': entry.reader_id || 'N/A',
+      'Status': entry.entry_time && new Date(entry.entry_time).getHours() >= 22 ? 'Late' : 'On Time'
+    }));
     
-    setTimeout(() => {
-      const currentTime = new Date();
-      const isAfterCurfew = currentTime.getHours() > 22 || (currentTime.getHours() === 22 && currentTime.getMinutes() > 0);
-      
-      const mockEntry: HostelEntry = {
-        id: Date.now().toString(),
-        studentId: 'CS21006',
-        studentName: 'Alice Brown',
-        roomNumber: 'D-402',
-        entryTime: currentTime.toLocaleString(),
-        isLate: type === 'in' && isAfterCurfew
-      };
-
-      if (type === 'out') {
-        mockEntry.exitTime = currentTime.toLocaleString();
-      }
-
-      setRecentEntries(prev => [mockEntry, ...prev.slice(0, 9)]);
-      
-      if (mockEntry.isLate) {
-        setLateEntries(prev => [mockEntry, ...prev]);
-        toast({
-          title: "Late Entry Detected",
-          description: `${mockEntry.studentName} entered after curfew time`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: `Student ${type === 'in' ? 'Check-In' : 'Check-Out'}`,
-          description: `${mockEntry.studentName} (${mockEntry.roomNumber}) recorded`,
-        });
-      }
-      
-      setIsScanning(false);
-    }, 2000);
+    exportToCSV(exportData, `hostel-access-log-${new Date().toISOString().split('T')[0]}`);
   };
 
-  const getTimeBadge = (isLate: boolean) => {
+  const handleExportPDF = () => {
+    const exportData = entries.map(entry => ({
+      'Student Name': entry.student?.name || 'Unknown',
+      'USN': entry.student?.usn || 'Unknown',
+      'Entry Time': entry.entry_time ? new Date(entry.entry_time).toLocaleString() : 'N/A',
+      'Exit Time': entry.exit_time ? new Date(entry.exit_time).toLocaleString() : 'N/A',
+      'Status': entry.entry_time && new Date(entry.entry_time).getHours() >= 22 ? 'Late' : 'On Time'
+    }));
+    
+    exportToPDF(exportData, `hostel-access-report-${new Date().toISOString().split('T')[0]}`);
+  };
+
+  const getTimeBadge = (entry: any) => {
+    if (!entry.entry_time) return null;
+    const isLate = new Date(entry.entry_time).getHours() >= 22;
     return (
       <Badge variant={isLate ? 'destructive' : 'default'}>
         {isLate ? 'LATE' : 'ON TIME'}
       </Badge>
     );
   };
+
+  const getAccessType = (entry: any) => {
+    if (entry.entry_time && entry.exit_time) return 'In/Out';
+    if (entry.entry_time) return 'Check-In';
+    if (entry.exit_time) return 'Check-Out';
+    return 'Unknown';
+  };
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-rose-100 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="text-red-600">Database Connection Error</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">Unable to connect to the hostel database. Please check your connection and try again.</p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-rose-100">
@@ -97,9 +86,23 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
             <p className="text-red-200">AccessCircle - Residential Management</p>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="outline" className="text-white border-white hover:bg-red-800">
-              <AlertTriangle className="w-4 h-4 mr-2" />
-              Emergency Alert
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleExportCSV}
+              className="text-white border-white hover:bg-red-800"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleExportPDF}
+              className="text-white border-white hover:bg-red-800"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Export PDF
             </Button>
             <Button variant="secondary" onClick={onLogout}>
               Logout
@@ -110,89 +113,41 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
 
       <div className="container mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* NFC Scanning Section */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              Hostel Entry/Exit System
-            </CardTitle>
-            <CardDescription>Curfew enforcement and residential tracking</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <Button 
-                size="lg" 
-                className="h-20 bg-green-600 hover:bg-green-700"
-                onClick={() => handleNFCScan('in')}
-                disabled={isScanning}
-              >
-                {isScanning ? 'Scanning...' : 'Check-In'}
-              </Button>
-              <Button 
-                size="lg" 
-                className="h-20 bg-red-600 hover:bg-red-700"
-                onClick={() => handleNFCScan('out')}
-                disabled={isScanning}
-              >
-                {isScanning ? 'Scanning...' : 'Check-Out'}
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-3 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">{recentEntries.length}</p>
-                <p className="text-sm text-gray-600">Total Entries</p>
-              </div>
-              <div className="p-3 bg-red-50 rounded-lg">
-                <p className="text-2xl font-bold text-red-600">{lateEntries.length}</p>
-                <p className="text-sm text-gray-600">Late Entries</p>
-              </div>
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="text-2xl font-bold text-blue-600">22:00</p>
-                <p className="text-sm text-gray-600">Curfew Time</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-2">
+          <HostelNFCScanner />
+        </div>
 
         {/* Quick Search */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="w-5 h-5" />
-              Quick Search
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by room or student ID..."
-              />
-              <Button className="w-full">Search</Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-1">
+          <HostelSearch />
+        </div>
 
         {/* Late Entries Alert */}
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="w-5 h-5" />
-              Late Entries
+              Late Entries ({lateEntries.length})
             </CardTitle>
             <CardDescription>Post-curfew arrivals requiring attention</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {lateEntries.map((entry) => (
-                <div key={entry.id} className="p-2 border border-red-200 rounded bg-red-50">
-                  <p className="font-medium text-sm">{entry.studentName}</p>
-                  <p className="text-xs text-gray-600">{entry.roomNumber} • {entry.entryTime}</p>
+              {isLoading ? (
+                <div className="text-center py-4">
+                  <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">Loading late entries...</p>
                 </div>
-              ))}
-              {lateEntries.length === 0 && (
+              ) : lateEntries.length > 0 ? (
+                lateEntries.map((entry) => (
+                  <div key={entry.log_id} className="p-2 border border-red-200 rounded bg-red-50">
+                    <p className="font-medium text-sm">{entry.student?.name || 'Unknown Student'}</p>
+                    <p className="text-xs text-gray-600">
+                      {entry.student?.usn || 'Unknown USN'} • {entry.entry_time ? new Date(entry.entry_time).toLocaleString() : 'No timestamp'}
+                    </p>
+                  </div>
+                ))
+              ) : (
                 <p className="text-sm text-gray-500 text-center py-4">No late entries today</p>
               )}
             </div>
@@ -210,26 +165,50 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {recentEntries.map((entry) => (
-                <div 
-                  key={entry.id} 
-                  className={`flex items-center justify-between p-3 border rounded-lg ${
-                    entry.isLate ? 'border-red-200 bg-red-50' : 'border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <User className="w-8 h-8 text-gray-400" />
-                    <div>
-                      <p className="font-medium">{entry.studentName}</p>
-                      <p className="text-sm text-gray-600">{entry.studentId} • Room {entry.roomNumber}</p>
-                      <p className="text-xs text-gray-500">
-                        In: {entry.entryTime} {entry.exitTime && `• Out: ${entry.exitTime}`}
-                      </p>
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-gray-500">Loading hostel entries...</p>
+                </div>
+              ) : entries.length > 0 ? (
+                entries.map((entry) => (
+                  <div 
+                    key={entry.log_id} 
+                    className={`flex items-center justify-between p-3 border rounded-lg ${
+                      entry.entry_time && new Date(entry.entry_time).getHours() >= 22
+                        ? 'border-red-200 bg-red-50' 
+                        : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <User className="w-8 h-8 text-gray-400" />
+                      <div>
+                        <p className="font-medium">{entry.student?.name || 'Unknown Student'}</p>
+                        <p className="text-sm text-gray-600">
+                          {entry.student?.usn || 'Unknown USN'} • {getAccessType(entry)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {entry.entry_time && `In: ${new Date(entry.entry_time).toLocaleString()}`}
+                          {entry.entry_time && entry.exit_time && ' • '}
+                          {entry.exit_time && `Out: ${new Date(entry.exit_time).toLocaleString()}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {getTimeBadge(entry)}
+                      <span className="text-xs text-gray-400">
+                        {entry.reader_id || 'Unknown Reader'}
+                      </span>
                     </div>
                   </div>
-                  {getTimeBadge(entry.isLate)}
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">No hostel entries found</p>
+                  <p className="text-sm text-gray-400">Start scanning NFC cards to see entries here</p>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
