@@ -1,12 +1,13 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Shield, Clock, User, AlertTriangle } from 'lucide-react';
+import { Search, Shield, Clock, User, AlertTriangle, Camera } from 'lucide-react';
 import { useGateData } from '@/hooks/useGateData';
+import StudentPhotoManager from './StudentPhotoManager';
 
 interface GateDashboardProps {
   onLogout: () => void;
@@ -16,6 +17,7 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showPhotoManager, setShowPhotoManager] = useState(false);
   const { toast } = useToast();
   
   const { 
@@ -113,6 +115,34 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
     );
   }
 
+  if (showPhotoManager) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+        {/* Header */}
+        <header className="bg-green-900 text-white p-4 shadow-lg">
+          <div className="container mx-auto flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">Student Photo Manager</h1>
+              <p className="text-green-200">AccessCircle - Photo Management</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" className="text-white border-white hover:bg-green-800" onClick={() => setShowPhotoManager(false)}>
+                Back to Dashboard
+              </Button>
+              <Button variant="secondary" onClick={onLogout}>
+                Logout
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        <div className="container mx-auto p-6">
+          <StudentPhotoManager />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       {/* Header */}
@@ -123,6 +153,10 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
             <p className="text-green-200">AccessCircle - Entry Management</p>
           </div>
           <div className="flex items-center gap-4">
+            <Button variant="outline" className="text-white border-white hover:bg-green-800" onClick={() => setShowPhotoManager(true)}>
+              <Camera className="w-4 h-4 mr-2" />
+              Manage Photos
+            </Button>
             <Button variant="outline" className="text-white border-white hover:bg-green-800">
               <AlertTriangle className="w-4 h-4 mr-2" />
               Emergency Alert
@@ -211,7 +245,7 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
           </CardContent>
         </Card>
 
-        {/* Live Entry Log */}
+        {/* Live Entry Log - Updated to show photos properly */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -233,15 +267,15 @@ const GateDashboard = ({ onLogout }: GateDashboardProps) => {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {entry.student?.image_url ? (
-                        <img 
-                          src={entry.student.image_url} 
-                          alt={entry.student.name}
-                          className="w-8 h-8 rounded-full object-cover"
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage 
+                          src={entry.student?.image_url} 
+                          alt={entry.student?.name || 'Student'} 
                         />
-                      ) : (
-                        <User className="w-8 h-8 text-gray-400" />
-                      )}
+                        <AvatarFallback>
+                          <User className="w-6 h-6" />
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
                         <p className="font-medium">{entry.student?.name || 'Unknown'}</p>
                         <p className="text-sm text-gray-600">{entry.student?.usn || entry.nfc_uid_scanner}</p>
