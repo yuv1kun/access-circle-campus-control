@@ -70,8 +70,8 @@ export const useAuth = () => {
       return {
         id: adminUser.id,
         username: adminUser.username,
-        role: adminUser.role,
-        status: adminUser.status
+        role: adminUser.role as 'library' | 'gate' | 'hostel',
+        status: adminUser.status as 'active' | 'inactive'
       };
       
     } catch (error) {
