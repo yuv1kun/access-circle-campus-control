@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LoginFormProps {
   onLogin: (role: 'library' | 'gate' | 'hostel') => void;
@@ -13,40 +13,20 @@ interface LoginFormProps {
 const LoginForm = ({ onLogin }: LoginFormProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-
-  // Pre-configured admin credentials
-  const adminCredentials = {
-    'lib.admin': { password: 'Library@2024', role: 'library' as const },
-    'gate.admin': { password: 'Gate@2024', role: 'gate' as const },
-    'hostel.admin': { password: 'Hostel@2024', role: 'hostel' as const },
-  };
+  const { authenticate, isLoading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    // Simulate authentication delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const admin = adminCredentials[username as keyof typeof adminCredentials];
     
-    if (admin && admin.password === password) {
-      toast({
-        title: "Login Successful",
-        description: `Welcome to AccessCircle ${admin.role} dashboard`,
-      });
-      onLogin(admin.role);
-    } else {
-      toast({
-        title: "Login Failed",
-        description: "Invalid username or password",
-        variant: "destructive",
-      });
+    if (!username || !password) {
+      return;
     }
 
-    setIsLoading(false);
+    const user = await authenticate(username, password);
+    
+    if (user) {
+      onLogin(user.role);
+    }
   };
 
   return (
@@ -84,14 +64,6 @@ const LoginForm = ({ onLogin }: LoginFormProps) => {
               {isLoading ? 'Authenticating...' : 'Login'}
             </Button>
           </form>
-          <div className="mt-6 p-4 bg-muted rounded-lg text-sm">
-            <p className="font-semibold mb-2">Demo Credentials:</p>
-            <div className="space-y-1">
-              <p>Library: lib.admin / Library@2024</p>
-              <p>Gate: gate.admin / Gate@2024</p>
-              <p>Hostel: hostel.admin / Hostel@2024</p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

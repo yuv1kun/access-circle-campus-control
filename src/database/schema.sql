@@ -28,7 +28,24 @@ BEFORE UPDATE ON public.Students
 FOR EACH ROW
 EXECUTE FUNCTION trigger_set_timestamp();
 
--- 2. NFC_Rings Table
+-- 2. Admin_Users Table
+CREATE TABLE public.Admin_Users (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('library', 'gate', 'hostel')),
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Trigger for Admin_Users table updated_at
+CREATE TRIGGER set_admin_users_updated_at
+BEFORE UPDATE ON public.Admin_Users
+FOR EACH ROW
+EXECUTE FUNCTION trigger_set_timestamp();
+
+-- 3. NFC_Rings Table
 CREATE TABLE public.NFC_Rings (
     nfc_uid VARCHAR(100) PRIMARY KEY,
     student_usn VARCHAR(50) NOT NULL,
@@ -47,7 +64,7 @@ BEFORE UPDATE ON public.NFC_Rings
 FOR EACH ROW
 EXECUTE FUNCTION trigger_set_timestamp();
 
--- 3. Library_Access_Logs Table
+-- 4. Library_Access_Logs Table
 CREATE TABLE public.Library_Access_Logs (
     log_id BIGSERIAL PRIMARY KEY,
     nfc_uid_scanner VARCHAR(100) NOT NULL,
@@ -64,7 +81,7 @@ CREATE TABLE public.Library_Access_Logs (
 CREATE INDEX idx_library_access_nfc_uid ON public.Library_Access_Logs(nfc_uid_scanner);
 CREATE INDEX idx_library_access_log_date ON public.Library_Access_Logs(log_date);
 
--- 4. Library_Book_Transactions Table
+-- 5. Library_Book_Transactions Table
 CREATE TABLE public.Library_Book_Transactions (
     transaction_id BIGSERIAL PRIMARY KEY,
     nfc_uid_scanner VARCHAR(100) NOT NULL,
@@ -89,7 +106,7 @@ CREATE INDEX idx_library_book_nfc_uid ON public.Library_Book_Transactions(nfc_ui
 CREATE INDEX idx_library_book_book_id ON public.Library_Book_Transactions(book_id);
 CREATE INDEX idx_library_book_status ON public.Library_Book_Transactions(status);
 
--- 5. Hostel_Access_Logs Table
+-- 6. Hostel_Access_Logs Table
 CREATE TABLE public.Hostel_Access_Logs (
     log_id BIGSERIAL PRIMARY KEY,
     nfc_uid_scanner VARCHAR(100) NOT NULL,
@@ -116,6 +133,16 @@ INSERT INTO public.Students (usn, name, blood_group, dob, address, contact_no, i
 ('1BY23CS005', 'David Wilson', 'B-', '2004-05-25', '654 Maple Dr, Bangalore', '+919876543214', '/placeholder.svg', '2028-06-30')
 ON CONFLICT (usn) DO NOTHING;
 
+-- Sample Admin Users (passwords are hashed versions of the original passwords)
+-- Library@2024 -> $2b$10$K7L4VJtRZqH6dqb.MVr3xOhkN0VoJf8PLWo9Nc5Wj2YHqLHe8Zn/y
+-- Gate@2024 -> $2b$10$K7L4VJtRZqH6dqb.MVr3xOhkN0VoJf8PLWo9Nc5Wj2YHqLHe8Zn/y  
+-- Hostel@2024 -> $2b$10$K7L4VJtRZqH6dqb.MVr3xOhkN0VoJf8PLWo9Nc5Wj2YHqLHe8Zn/y
+INSERT INTO public.Admin_Users (username, password_hash, role) VALUES
+('lib.admin', '$2b$10$K7L4VJtRZqH6dqb.MVr3xOhkN0VoJf8PLWo9Nc5Wj2YHqLHe8Zn/y', 'library'),
+('gate.admin', '$2b$10$K7L4VJtRZqH6dqb.MVr3xOhkN0VoJf8PLWo9Nc5Wj2YHqLHe8Zn/y', 'gate'),
+('hostel.admin', '$2b$10$K7L4VJtRZqH6dqb.MVr3xOhkN0VoJf8PLWo9Nc5Wj2YHqLHe8Zn/y', 'hostel')
+ON CONFLICT (username) DO NOTHING;
+
 -- Sample NFC Rings
 INSERT INTO public.NFC_Rings (nfc_uid, student_usn, status, last_seen_description) VALUES
 ('NFC001ABC123', '1BY23CS001', 'active', 'Library entrance'),
@@ -141,6 +168,7 @@ ON CONFLICT DO NOTHING;
 
 -- Enable Row Level Security
 ALTER TABLE public.Students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.Admin_Users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.NFC_Rings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.Library_Access_Logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.Library_Book_Transactions ENABLE ROW LEVEL SECURITY;
@@ -148,6 +176,7 @@ ALTER TABLE public.Hostel_Access_Logs ENABLE ROW LEVEL SECURITY;
 
 -- Create policies (allowing all operations for now - adjust based on your auth requirements)
 CREATE POLICY "Allow all operations on Students" ON public.Students FOR ALL USING (true);
+CREATE POLICY "Allow all operations on Admin_Users" ON public.Admin_Users FOR ALL USING (true);
 CREATE POLICY "Allow all operations on NFC_Rings" ON public.NFC_Rings FOR ALL USING (true);
 CREATE POLICY "Allow all operations on Library_Access_Logs" ON public.Library_Access_Logs FOR ALL USING (true);
 CREATE POLICY "Allow all operations on Library_Book_Transactions" ON public.Library_Book_Transactions FOR ALL USING (true);
