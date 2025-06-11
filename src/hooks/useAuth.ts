@@ -18,16 +18,76 @@ export const useAuth = () => {
     setIsLoading(true);
     
     try {
-      // Query admin user by username
+      console.log('Attempting to authenticate user:', username);
+      
+      // Query admin user by username - try different table name formats
       const { data: adminUser, error } = await supabase
-        .from('Admin_Users')
+        .from('admin_users') // Changed from 'Admin_Users' to lowercase
         .select('id, username, password_hash, role, status')
         .eq('username', username)
         .eq('status', 'active')
         .single();
 
-      if (error || !adminUser) {
-        console.log('User not found or database error:', error);
+      console.log('Database query result:', { adminUser, error });
+
+      if (error) {
+        console.log('Database error:', error);
+        
+        // If table not found, try with original case
+        if (error.code === '42P01') {
+          console.log('Trying with uppercase table name...');
+          const { data: adminUserAlt, error: errorAlt } = await supabase
+            .from('Admin_Users')
+            .select('id, username, password_hash, role, status')
+            .eq('username', username)
+            .eq('status', 'active')
+            .single();
+          
+          console.log('Alternative query result:', { adminUserAlt, errorAlt });
+          
+          if (errorAlt || !adminUserAlt) {
+            toast({
+              title: "Login Failed",
+              description: "Database connection error or user not found",
+              variant: "destructive",
+            });
+            return null;
+          }
+          
+          // Use the alternative result
+          const isPasswordValid = await validatePassword(password, adminUserAlt.role);
+          
+          if (!isPasswordValid) {
+            toast({
+              title: "Login Failed", 
+              description: "Invalid username or password",
+              variant: "destructive",
+            });
+            return null;
+          }
+
+          toast({
+            title: "Login Successful",
+            description: `Welcome to AccessCircle ${adminUserAlt.role} dashboard`,
+          });
+
+          return {
+            id: adminUserAlt.id,
+            username: adminUserAlt.username,
+            role: adminUserAlt.role,
+            status: adminUserAlt.status
+          };
+        }
+        
+        toast({
+          title: "Login Failed",
+          description: "Invalid username or password",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      if (!adminUser) {
         toast({
           title: "Login Failed",
           description: "Invalid username or password",
