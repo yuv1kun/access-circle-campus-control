@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -90,7 +89,7 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
               variant="outline" 
               size="sm"
               onClick={handleExportCSV}
-              className="text-white border-white hover:bg-red-800"
+              className="text-black border-white hover:bg-red-800 hover:text-white"
             >
               <Download className="w-4 h-4 mr-2" />
               Export CSV
@@ -99,7 +98,7 @@ const HostelDashboard = ({ onLogout }: HostelDashboardProps) => {
               variant="outline" 
               size="sm"
               onClick={handleExportPDF}
-              className="text-white border-white hover:bg-red-800"
+              className="text-black border-white hover:bg-red-800 hover:text-white"
             >
               <FileText className="w-4 h-4 mr-2" />
               Export PDF

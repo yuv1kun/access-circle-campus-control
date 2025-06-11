@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +9,7 @@ import { Search, BookOpen, Clock, User, AlertTriangle, Download, Calendar } from
 import { useLibraryData, Student } from '@/hooks/useLibraryData';
 import IssueBookForm from '@/components/IssueBookForm';
 import ReturnBookForm from '@/components/ReturnBookForm';
+import EmergencyAlertDialog from '@/components/EmergencyAlertDialog';
 import { exportToCSV, exportToPDF, getDateRangeFilter } from '@/utils/exportUtils';
 
 interface LibraryDashboardProps {
@@ -135,10 +135,12 @@ const LibraryDashboard = ({ onLogout }: LibraryDashboardProps) => {
             <p className="text-blue-200">AccessCircle - Library Management</p>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100">
-              <AlertTriangle className="w-4 h-4 mr-2" />
-              Emergency Alert
-            </Button>
+            <EmergencyAlertDialog>
+              <Button variant="outline" className="text-black bg-white border-white hover:bg-gray-100">
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Emergency Alert
+              </Button>
+            </EmergencyAlertDialog>
             <Button variant="secondary" onClick={onLogout}>
               Logout
             </Button>
