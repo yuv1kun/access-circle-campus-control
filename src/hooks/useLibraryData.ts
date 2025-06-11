@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -39,7 +40,31 @@ export const useLibraryData = () => {
 
   useEffect(() => {
     fetchInitialData();
-    setupRealtimeSubscriptions();
+    
+    // Setup realtime subscriptions with proper cleanup
+    const transactionsChannel = supabase
+      .channel(`library_book_transactions_${Date.now()}`) // Unique channel name
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'library_book_transactions' }, 
+        (payload) => {
+          console.log('Transaction change:', payload);
+          fetchInitialData();
+        })
+      .subscribe();
+
+    const entriesChannel = supabase
+      .channel(`library_access_logs_${Date.now()}`) // Unique channel name
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'library_access_logs' }, 
+        (payload) => {
+          console.log('Entry change:', payload);
+          fetchInitialData();
+        })
+      .subscribe();
+
+    // Cleanup function
+    return () => {
+      supabase.removeChannel(transactionsChannel);
+      supabase.removeChannel(entriesChannel);
+    };
   }, []);
 
   const fetchInitialData = async () => {
@@ -88,31 +113,6 @@ export const useLibraryData = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const setupRealtimeSubscriptions = () => {
-    const transactionsChannel = supabase
-      .channel('library_book_transactions_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'library_book_transactions' }, 
-        (payload) => {
-          console.log('Transaction change:', payload);
-          fetchInitialData();
-        })
-      .subscribe();
-
-    const entriesChannel = supabase
-      .channel('library_access_logs_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'library_access_logs' }, 
-        (payload) => {
-          console.log('Entry change:', payload);
-          fetchInitialData();
-        })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(transactionsChannel);
-      supabase.removeChannel(entriesChannel);
-    };
   };
 
   const searchStudents = async (query: string): Promise<Student[]> => {
@@ -253,7 +253,7 @@ export const useLibraryData = () => {
     }
   };
 
-  const returnBook = async (transactionId: string) => {
+  const returnBook = async (transactionId: number) => {
     try {
       const { error } = await supabase
         .from('library_book_transactions')
@@ -261,7 +261,7 @@ export const useLibraryData = () => {
           return_date: new Date().toISOString(),
           status: 'returned'
         })
-        .eq('transaction_id', parseInt(transactionId));
+        .eq('transaction_id', transactionId);
 
       if (error) throw error;
 
