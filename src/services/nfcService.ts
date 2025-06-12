@@ -12,119 +12,28 @@ export interface NFCServiceInterface {
 class CapacitorNFCService implements NFCServiceInterface {
   private scanningCallback: ((uid: string) => void) | null = null;
   private isCurrentlyScanning = false;
-  private NFC: any = null;
-
-  constructor() {
-    // Initialize NFC plugin if available
-    this.initNFC();
-  }
-
-  private async initNFC() {
-    try {
-      // Only try to import if we're on a native platform
-      if (Capacitor.isNativePlatform()) {
-        const { NFC } = await import('@capacitor-community/nfc');
-        this.NFC = NFC;
-      }
-    } catch (error) {
-      console.log('Capacitor NFC plugin not available:', error);
-      this.NFC = null;
-    }
-  }
 
   async isSupported(): Promise<boolean> {
-    if (!this.NFC) {
-      await this.initNFC();
-    }
-    
-    if (!this.NFC) {
-      return false;
-    }
-
-    try {
-      const result = await this.NFC.isSupported();
-      return result.isSupported;
-    } catch (error) {
-      console.log('NFC not supported:', error);
-      return false;
-    }
+    // For now, return false since we don't have the NFC plugin
+    // This will cause the factory to fall back to Web NFC or simulation
+    return false;
   }
 
   async requestPermissions(): Promise<boolean> {
-    if (!this.NFC) {
-      return false;
-    }
-
-    try {
-      const result = await this.NFC.checkPermissions();
-      if (result.nfc === 'granted') {
-        return true;
-      }
-      
-      const requestResult = await this.NFC.requestPermissions();
-      return requestResult.nfc === 'granted';
-    } catch (error) {
-      console.error('NFC permission error:', error);
-      return false;
-    }
+    return false;
   }
 
   async startScanning(callback: (uid: string) => void): Promise<void> {
-    if (!this.NFC) {
-      throw new Error('NFC plugin not available');
-    }
-
-    try {
-      const hasPermission = await this.requestPermissions();
-      if (!hasPermission) {
-        throw new Error('NFC permission denied');
-      }
-
-      this.scanningCallback = callback;
-      this.isCurrentlyScanning = true;
-
-      await this.NFC.addListener('nfcTagScanned', (event: any) => {
-        console.log('NFC tag scanned:', event);
-        const uid = this.extractUID(event.nfcTag);
-        if (uid && this.scanningCallback) {
-          this.scanningCallback(uid);
-        }
-      });
-
-      await this.NFC.startScanSession();
-    } catch (error) {
-      this.isCurrentlyScanning = false;
-      throw error;
-    }
+    throw new Error('Native NFC plugin not available');
   }
 
   async stopScanning(): Promise<void> {
-    if (!this.NFC) {
-      return;
-    }
-
-    try {
-      await this.NFC.stopScanSession();
-      await this.NFC.removeAllListeners();
-      this.isCurrentlyScanning = false;
-      this.scanningCallback = null;
-    } catch (error) {
-      console.error('Error stopping NFC scan:', error);
-    }
+    this.isCurrentlyScanning = false;
+    this.scanningCallback = null;
   }
 
   isScanning(): boolean {
     return this.isCurrentlyScanning;
-  }
-
-  private extractUID(nfcTag: any): string | null {
-    // Extract UID from the NFC tag
-    if (nfcTag.id) {
-      return Array.from(nfcTag.id)
-        .map((byte: number) => byte.toString(16).padStart(2, '0'))
-        .join('').toUpperCase();
-    }
-    return null;
   }
 }
 
@@ -231,22 +140,21 @@ class SimulatedNFCService implements NFCServiceInterface {
 // Factory function to create the appropriate NFC service
 export const createNFCService = async (): Promise<NFCServiceInterface> => {
   if (Capacitor.isNativePlatform()) {
-    // Use Capacitor NFC plugin for native mobile apps
-    const service = new CapacitorNFCService();
-    const isSupported = await service.isSupported();
-    if (isSupported) {
-      return service;
-    }
-  } else {
-    // Use Web NFC API for web browsers
-    const service = new WebNFCService();
-    const isSupported = await service.isSupported();
-    if (isSupported) {
-      return service;
-    }
+    // For now, skip native NFC since we don't have the plugin
+    // This will fall through to Web NFC or simulation
+    console.log('Native platform detected, but NFC plugin not available');
+  }
+  
+  // Try Web NFC API for web browsers
+  const webService = new WebNFCService();
+  const webSupported = await webService.isSupported();
+  if (webSupported) {
+    console.log('Using Web NFC API');
+    return webService;
   }
 
   // Fallback to simulation
+  console.log('Using NFC simulation mode');
   return new SimulatedNFCService();
 };
 
