@@ -15,14 +15,17 @@ class CapacitorNFCService implements NFCServiceInterface {
   private NFC: any = null;
 
   constructor() {
-    // Dynamically import NFC to handle cases where the plugin isn't available
+    // Initialize NFC plugin if available
     this.initNFC();
   }
 
   private async initNFC() {
     try {
-      const { NFC } = await import('@capacitor-community/nfc');
-      this.NFC = NFC;
+      // Only try to import if we're on a native platform
+      if (Capacitor.isNativePlatform()) {
+        const { NFC } = await import('@capacitor-community/nfc');
+        this.NFC = NFC;
+      }
     } catch (error) {
       console.log('Capacitor NFC plugin not available:', error);
       this.NFC = null;
