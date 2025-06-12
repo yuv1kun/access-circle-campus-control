@@ -1,9 +1,11 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Wifi, WifiOff, Play, Square } from 'lucide-react';
+import { Wifi, WifiOff, Play, Square, Smartphone, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Capacitor } from '@capacitor/core';
+import { getNFCService, NFCServiceInterface } from '@/services/nfcService';
 
 interface NFCScannerProps {
   onScanSuccess: (nfcUid: string) => void;
@@ -12,103 +14,139 @@ interface NFCScannerProps {
 }
 
 const NFCScanner = ({ onScanSuccess, isScanning, setIsScanning }: NFCScannerProps) => {
+  const [nfcService, setNfcService] = useState<NFCServiceInterface | null>(null);
   const [nfcSupported, setNfcSupported] = useState(false);
   const [scanCount, setScanCount] = useState(0);
-  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [serviceType, setServiceType] = useState<'native' | 'web' | 'simulation'>('simulation');
   const { toast } = useToast();
 
-  // Sample NFC UIDs for simulation
-  const sampleNFCUids = [
-    'NFC001ABC123',
-    'NFC002DEF456', 
-    'NFC003GHI789',
-    'NFC004JKL012',
-    'NFC005MNO345'
-  ];
-
   useEffect(() => {
-    // Check if NFC is supported
-    if ('NDEFReader' in window) {
-      setNfcSupported(true);
-    }
+    const initializeNFC = async () => {
+      try {
+        const service = await getNFCService();
+        setNfcService(service);
+        
+        const supported = await service.isSupported();
+        setNfcSupported(supported);
+
+        // Determine service type for display
+        if (Capacitor.isNativePlatform() && supported) {
+          setServiceType('native');
+        } else if ('NDEFReader' in window && supported) {
+          setServiceType('web');
+        } else {
+          setServiceType('simulation');
+        }
+      } catch (error) {
+        console.error('Failed to initialize NFC service:', error);
+        setNfcSupported(false);
+        setServiceType('simulation');
+      }
+    };
+
+    initializeNFC();
   }, []);
 
   const startScanning = async () => {
+    if (!nfcService) {
+      toast({
+        title: "NFC Error",
+        description: "NFC service not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsScanning(true);
     setScanCount(0);
 
-    if (nfcSupported && 'NDEFReader' in window) {
-      try {
-        const ndef = new (window as any).NDEFReader();
-        await ndef.scan();
-        
-        ndef.addEventListener('reading', ({ message, serialNumber }: any) => {
-          console.log('NFC tag scanned:', serialNumber);
-          onScanSuccess(serialNumber);
-          setScanCount(prev => prev + 1);
-        });
+    try {
+      await nfcService.startScanning((uid: string) => {
+        console.log('NFC tag scanned:', uid);
+        onScanSuccess(uid);
+        setScanCount(prev => prev + 1);
+      });
 
-        ndef.addEventListener('readingerror', () => {
-          toast({
-            title: "NFC Read Error",
-            description: "Failed to read NFC tag. Please try again.",
-            variant: "destructive",
-          });
-        });
-      } catch (error) {
-        console.error('NFC scan error:', error);
+      // Show appropriate toast based on service type
+      if (serviceType === 'simulation') {
         toast({
-          title: "NFC Error",
-          description: "Failed to start NFC scanning. Using simulation mode.",
-          variant: "destructive",
+          title: "Demo Mode",
+          description: "NFC simulation started. Random scans will occur every 3-8 seconds.",
         });
-        startSimulatedScanning();
+      } else {
+        toast({
+          title: "NFC Scanning Started",
+          description: "Ready to scan NFC tags",
+        });
       }
-    } else {
-      // Fallback to simulated scanning for demo
-      startSimulatedScanning();
+    } catch (error) {
+      console.error('NFC scan error:', error);
+      setIsScanning(false);
+      
+      toast({
+        title: "NFC Error",
+        description: `Failed to start NFC scanning: ${error}`,
+        variant: "destructive",
+      });
     }
   };
 
-  const startSimulatedScanning = () => {
-    toast({
-      title: "Demo Mode",
-      description: "NFC simulation started. Random scans will occur every 3-8 seconds.",
-    });
+  const stopScanning = async () => {
+    if (!nfcService) return;
 
-    scanIntervalRef.current = setInterval(() => {
-      // Randomly select an NFC UID
-      const randomUid = sampleNFCUids[Math.floor(Math.random() * sampleNFCUids.length)];
-      onScanSuccess(randomUid);
-      setScanCount(prev => prev + 1);
-    }, Math.random() * 5000 + 3000); // Random interval between 3-8 seconds
+    try {
+      await nfcService.stopScanning();
+      setIsScanning(false);
+      
+      toast({
+        title: "Scanning Stopped",
+        description: `Total scans: ${scanCount}`,
+      });
+    } catch (error) {
+      console.error('Error stopping NFC scan:', error);
+      setIsScanning(false);
+    }
   };
 
-  const stopScanning = () => {
-    setIsScanning(false);
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
+  const getServiceIcon = () => {
+    switch (serviceType) {
+      case 'native':
+        return <Smartphone className="w-5 h-5 text-green-600" />;
+      case 'web':
+        return <Globe className="w-5 h-5 text-blue-600" />;
+      default:
+        return nfcSupported ? (
+          <Wifi className="w-5 h-5 text-green-600" />
+        ) : (
+          <WifiOff className="w-5 h-5 text-orange-600" />
+        );
     }
-    
-    toast({
-      title: "Scanning Stopped",
-      description: `Total scans: ${scanCount}`,
-    });
+  };
+
+  const getServiceLabel = () => {
+    switch (serviceType) {
+      case 'native':
+        return 'Native NFC Ready';
+      case 'web':
+        return 'Web NFC Ready';
+      default:
+        return nfcSupported ? 'NFC Ready' : 'NFC Simulation Mode';
+    }
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {nfcSupported ? (
-            <Wifi className="w-5 h-5 text-green-600" />
-          ) : (
-            <WifiOff className="w-5 h-5 text-orange-600" />
-          )}
+          {getServiceIcon()}
           <span className="text-sm font-medium">
-            {nfcSupported ? 'NFC Ready' : 'NFC Simulation Mode'}
+            {getServiceLabel()}
           </span>
+          {Capacitor.isNativePlatform() && (
+            <Badge variant="outline" className="text-xs">
+              {Capacitor.getPlatform()}
+            </Badge>
+          )}
         </div>
         
         <Badge variant={isScanning ? 'default' : 'secondary'}>
@@ -124,6 +162,7 @@ const NFCScanner = ({ onScanSuccess, isScanning, setIsScanning }: NFCScannerProp
             : 'bg-green-600 hover:bg-green-700'
         }`}
         onClick={isScanning ? stopScanning : startScanning}
+        disabled={!nfcService}
       >
         {isScanning ? (
           <>
@@ -146,6 +185,12 @@ const NFCScanner = ({ onScanSuccess, isScanning, setIsScanning }: NFCScannerProp
               Scans detected: {scanCount}
             </span>
           </div>
+        </div>
+      )}
+
+      {serviceType === 'simulation' && (
+        <div className="text-xs text-gray-500 text-center p-2 bg-gray-50 rounded">
+          Demo mode active. Deploy to mobile app for real NFC scanning.
         </div>
       )}
     </div>

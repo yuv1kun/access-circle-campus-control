@@ -18,7 +18,22 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: 'dark',
       backgroundColor: '#991b1b'
+    },
+    NFC: {
+      // NFC configuration
     }
+  },
+  ios: {
+    entitlements: {
+      'com.apple.developer.nfc.readersession.formats': ['NDEF', 'TAG']
+    }
+  },
+  android: {
+    permissions: [
+      'android.permission.NFC',
+      'android.permission.INTERNET',
+      'android.permission.ACCESS_NETWORK_STATE'
+    ]
   }
 };
 

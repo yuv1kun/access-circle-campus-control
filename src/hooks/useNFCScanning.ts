@@ -1,7 +1,8 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getNFCService, NFCServiceInterface } from '@/services/nfcService';
 
 export interface ScannedStudent {
   usn: string;
@@ -16,7 +17,25 @@ export const useNFCScanning = () => {
   const [scannedStudent, setScannedStudent] = useState<ScannedStudent | null>(null);
   const [showScanPopup, setShowScanPopup] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
+  const [nfcService, setNfcService] = useState<NFCServiceInterface | null>(null);
+  const [nfcSupported, setNfcSupported] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const initializeNFC = async () => {
+      try {
+        const service = await getNFCService();
+        setNfcService(service);
+        const supported = await service.isSupported();
+        setNfcSupported(supported);
+      } catch (error) {
+        console.error('Failed to initialize NFC service:', error);
+        setNfcSupported(false);
+      }
+    };
+
+    initializeNFC();
+  }, []);
 
   const handleNFCScan = useCallback(async (nfcUid: string) => {
     console.log('Processing NFC scan:', nfcUid);
@@ -109,6 +128,8 @@ export const useNFCScanning = () => {
     showScanPopup,
     scanSuccess,
     handleNFCScan,
-    closeScanPopup
+    closeScanPopup,
+    nfcService,
+    nfcSupported
   };
 };
